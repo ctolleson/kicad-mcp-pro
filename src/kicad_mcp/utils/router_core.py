@@ -69,15 +69,18 @@ class SesRoute:
 def _units_per_mm(unit: str, factor: float) -> float:
     """Resolution units per millimetre for a Specctra ``(resolution unit factor)``.
 
-    KiCad's Specctra export writes coordinates in the base ``unit`` itself (verified: with
-    ``(resolution um 10)`` a part at 2.5 mm exports as ``2500`` -> micrometres, 1 mm = 1000
-    units). The ``factor`` is KiCad's resolution-grid declaration, not a coordinate
-    multiplier, so it is not applied to the magnitude. FreeRouting echoes the same
-    convention in the .ses it returns.
+    The factor IS a coordinate multiplier in a Freerouting session. Measured against
+    Freerouting 2.4.1: with ``(resolution um 10)`` a component at 173.765 mm is written
+    as ``1737650``, i.e. 1000 (um per mm) x 10 (factor) = 10000 units per mm.
+
+    KiCad's own .dsn export is the inconsistent one -- it declares the same
+    ``(resolution um 10)`` but writes plain micrometres (173765 for that component). That
+    only matters for reading a .dsn; this module reads the .ses that Freerouting returns,
+    where the factor applies. Ignoring it scaled every routed track 10x and put the
+    routing off-board.
     """
-    _ = factor
     per_unit = {"um": 1000.0, "mm": 1.0, "inch": 1.0 / 25.4, "mil": 1000.0 / 25.4}
-    return per_unit.get(unit.lower(), 1000.0)
+    return per_unit.get(unit.lower(), 1000.0) * (factor if factor > 0 else 1.0)
 
 
 def _to_mm(value: float, units_per_mm: float, *, flip: bool = False) -> float:
@@ -171,11 +174,32 @@ def _parse_net_vias(net_block: str, net_name: str, route: SesRoute) -> None:
 
 
 def parse_net_numbers(pcb_text: str) -> dict[str, int]:
-    """Map net names to their numbers from a ``.kicad_pcb`` ``(net N "name")`` table."""
+    """Map net names to their numbers from a ``.kicad_pcb`` ``(net N "name")`` table.
+
+    KiCad 9 and earlier declare that table at board level and have items refer to it by
+    number. KiCad 10 dropped it and writes the net name on each item instead, so an empty
+    mapping is the correct answer for a 10.x board -- not a parse failure. Callers must
+    treat "no table" as "reference nets by name" rather than "no nets exist".
+    """
     numbers: dict[str, int] = {}
     for match in re.finditer(r'\(net\s+(\d+)\s+"([^"]*)"\)', pcb_text):
         numbers[match.group(2)] = int(match.group(1))
     return numbers
+
+
+def _net_token(net_name: str, net_numbers: dict[str, int]) -> str | None:
+    """Render the ``(net ...)`` token in whichever form this board file uses.
+
+    Returns ``None`` only when the board declares a net table that has no entry for this
+    net, which is a genuine mismatch between the session and the board.
+    """
+    number = net_numbers.get(net_name)
+    if number is not None:
+        return f"(net {number})"
+    if net_numbers:
+        return None
+    escaped = net_name.replace("\\", "\\\\").replace('"', '\\"')
+    return f'(net "{escaped}")'
 
 
 def _fmt(value: float) -> str:
@@ -196,28 +220,28 @@ def render_pcb_items(route: SesRoute, net_numbers: dict[str, int], *, indent: st
         key=lambda s: (net_numbers.get(s.net_name, -1), s.layer, s.start, s.end, s.width_mm),
     )
     for seg in segments:
-        net = net_numbers.get(seg.net_name)
+        net = _net_token(seg.net_name, net_numbers)
         if net is None:
             continue
         uid = _det_uuid("seg", seg.net_name, seg.layer, seg.start, seg.end, seg.width_mm)
         lines.append(
             f"{indent}(segment (start {_fmt(seg.start[0])} {_fmt(seg.start[1])}) "
             f"(end {_fmt(seg.end[0])} {_fmt(seg.end[1])}) (width {_fmt(seg.width_mm)}) "
-            f'(layer "{seg.layer}") (net {net}) (uuid "{uid}"))'
+            f'(layer "{seg.layer}") {net} (uuid "{uid}"))'
         )
     vias = sorted(
         route.vias,
         key=lambda v: (net_numbers.get(v.net_name, -1), v.at, v.size_mm, v.drill_mm),
     )
     for via in vias:
-        net = net_numbers.get(via.net_name)
+        net = _net_token(via.net_name, net_numbers)
         if net is None:
             continue
         uid = _det_uuid("via", via.net_name, via.at, via.size_mm, via.drill_mm)
         lines.append(
             f"{indent}(via (at {_fmt(via.at[0])} {_fmt(via.at[1])}) (size {_fmt(via.size_mm)}) "
             f'(drill {_fmt(via.drill_mm)}) (layers "{via.layers[0]}" "{via.layers[1]}") '
-            f'(net {net}) (uuid "{uid}"))'
+            f'{net} (uuid "{uid}"))'
         )
     return "\n".join(lines)
 
