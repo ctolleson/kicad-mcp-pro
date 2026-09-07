@@ -3414,13 +3414,43 @@ def _register_board_mutation_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
+    @headless_compatible
     def pcb_set_net_class(net_name: str, class_name: str) -> str:
-        """Assign a net class when the runtime supports it."""
-        if active_operating_mode(get_config()) is not OperatingMode.EXPERIMENTAL:
-            return "Net class assignment is experimental. Enable experimental tools to try it."
+        """Assign one net to a net class.
+
+        KiCad has no IPC operation for this, but the assignment lives in the project
+        file's netclass patterns, so it is a file edit. The net name is matched
+        exactly; use pcb_assign_nets_to_class() for wildcard patterns, and
+        pcb_define_net_class() to set the class's track and via sizes.
+        """
+        from ..project.board_setup import (
+            BoardSetupError,
+            assign_patterns,
+            describe,
+            read_project,
+            write_project,
+        )
+
+        cfg = get_config()
+        if cfg.project_file is None or not cfg.project_file.exists():
+            return "No .kicad_pro is configured. Call kicad_set_project() first."
+        try:
+            project = read_project(cfg.project_file)
+            # Keep this class's existing patterns; add the one net.
+            current = [
+                p["pattern"]
+                for p in describe(project)["netclass_patterns"]
+                if p.get("netclass") == class_name
+            ]
+            if net_name in current:
+                return f"Net '{net_name}' is already assigned to net class '{class_name}'."
+            assign_patterns(project, class_name, [*current, net_name])
+            write_project(cfg.project_file, project)
+        except BoardSetupError as exc:
+            return f"Net class assignment failed: {exc}"
         return (
-            "Direct net class assignment is not exposed as a stable KiCad 10.x IPC operation. "
-            f"Update the project rules for net '{net_name}' to use class '{class_name}'."
+            f"Assigned net '{net_name}' to net class '{class_name}' in "
+            f"{cfg.project_file.name}. Reload the board in KiCad to pick it up."
         )
 
     @mcp.tool()

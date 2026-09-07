@@ -442,6 +442,12 @@ _FILE_BACKED_PCB_WRITES = frozenset(
         "pcb_cleanup_tracks_and_vias",
         "pcb_set_zone_properties",
         "pcb_set_stackup",
+        "pcb_set_predefined_sizes",
+        "pcb_define_net_class",
+        "pcb_delete_net_class",
+        "pcb_assign_nets_to_class",
+        "pcb_apply_manufacturer_rules",
+        "pcb_set_net_class",
     }
 )
 
