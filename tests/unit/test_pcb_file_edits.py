@@ -335,3 +335,38 @@ def test_locked_no_is_treated_as_unlocked() -> None:
     root = parse(LOCKED_BOARD)
     global_delete(root, item_types=["tracks"], locked=False)
     assert "(start 5 5)" not in dumps(root)
+
+
+# --- Registration ----------------------------------------------------------
+
+FILE_EDIT_TOOLS = {
+    "pcb_swap_layers",
+    "pcb_global_delete",
+    "pcb_cleanup_tracks_and_vias",
+    "pcb_list_zones",
+    "pcb_set_zone_properties",
+    "pcb_list_nets_on_board",
+}
+
+
+def test_file_edit_tools_are_registered() -> None:
+    from kicad_mcp.server import build_server
+
+    server = build_server("agent_full")
+    server.ensure_registered()
+    registered = {tool.name for tool in server._tool_manager.list_tools()}
+    assert FILE_EDIT_TOOLS <= registered
+
+
+def test_file_edit_tools_do_not_require_a_running_kicad() -> None:
+    """They edit the .kicad_pcb directly, so discovery must not hide them when
+    KiCad is closed — the exact case they exist to serve."""
+    from kicad_mcp.capabilities import RuntimeRequirement
+    from kicad_mcp.capabilities import get as get_capability_record
+
+    for name in FILE_EDIT_TOOLS | {"pcb_set_stackup"}:
+        record = get_capability_record(name)
+        assert record is not None, f"{name} has no capability record"
+        assert record.runtime is not RuntimeRequirement.KICAD_IPC, (
+            f"{name} is file-backed but is marked as requiring a live KiCad session"
+        )

@@ -79,6 +79,7 @@ dev = [
   "pytest-benchmark>=4.0.0",
   "pytest-cov>=5.0.0",
   "pytest-mock>=3.14.0",
+  "pytest-timeout>=2.3.0",
   "pytest-testmon>=2.1.1",
   "pytest-xdist>=3.6.0",
   "pyright>=1.1.390",
@@ -147,7 +148,11 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# A per-test deadline is a backstop, not a performance budget. Without it a single
+# blocking call — notably a KiCad IPC dial against a busy GUI — parks the whole run
+# with no output and no failure; observed as a 12-minute stall on 3 seconds of CPU.
+# Override per test with @pytest.mark.timeout(n) where a longer run is legitimate.
+addopts = "-q --timeout=120 --timeout-method=thread"
 asyncio_mode = "auto"
 markers = [
   "benchmark: lightweight performance regression checks with committed baselines",

@@ -56,7 +56,8 @@ def test_gui_only_command_says_so_plainly() -> None:
 
 
 def test_file_backed_command_explains_the_file_route() -> None:
-    result = invoke("pcbnew.GlobalEdit.swapLayers")
+    # Swap Layers used to sit here; it now has a tool, so use one still unbound.
+    result = invoke("pcbnew.GlobalEdit.changeFootprints")
     assert result.executed is False
     assert result.channel == "file"
     assert ".kicad_pcb" in result.summary
