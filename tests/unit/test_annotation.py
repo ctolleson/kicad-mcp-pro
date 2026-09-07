@@ -226,3 +226,37 @@ def test_applied_board_still_parses(models) -> None:
     from kicad_mcp.utils.sexpr_tree import dump_file
 
     assert parse(dump_file(tree)).tag == "kicad_pcb"
+
+
+def test_a_board_pad_with_no_schematic_net_is_reported() -> None:
+    """An import that drops a connection looks exactly like this. Iterating only the
+    schematic's pads made it invisible."""
+    netlist = parse_netlist(
+        parse('(export (components (comp (ref "U7") (value "MUX") (footprint "L:M"))))')
+    )
+    board = parse_board(
+        parse(
+            '(kicad_pcb (footprint "L:M" (property "Reference" "U7" (at 0 0))'
+            ' (property "Value" "MUX" (at 0 0))'
+            ' (pad "3" smd rect (at 0 0) (net "SWDIO"))))'
+        )
+    )
+    changes = diff(netlist, board).pad_net_changes
+    assert len(changes) == 1
+    assert changes[0].reference == "U7"
+    assert changes[0].pad == "3"
+    assert changes[0].board_net == "SWDIO"
+    assert changes[0].schematic_net == ""
+
+
+def test_a_pad_unconnected_on_both_sides_is_not_a_difference() -> None:
+    netlist = parse_netlist(
+        parse('(export (components (comp (ref "U7") (value "MUX") (footprint "L:M"))))')
+    )
+    board = parse_board(
+        parse(
+            '(kicad_pcb (footprint "L:M" (property "Reference" "U7" (at 0 0))'
+            ' (property "Value" "MUX" (at 0 0)) (pad "7" smd rect (at 0 0))))'
+        )
+    )
+    assert diff(netlist, board).pad_net_changes == []

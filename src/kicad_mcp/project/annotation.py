@@ -284,14 +284,21 @@ def diff(schematic: SchematicModel, board: BoardModel) -> AnnotationDiff:
         if component.value and board_value != component.value:
             result.value_mismatches.append((reference, board_value, component.value))
 
-    for key, schematic_net in sorted(schematic.pad_nets.items()):
+    # Walk the union, not just the schematic side. A pad that carries a net on the
+    # board but none in the schematic is a real difference - an import that dropped
+    # a connection looks exactly like this - and iterating the schematic alone made
+    # it invisible.
+    for key in sorted(set(schematic.pad_nets) | set(board.pad_nets)):
         reference, pad = key
         if reference not in board.footprints:
             continue  # its whole component is missing; reported above
         if key not in board.pad_nets:
             continue  # pad absent from the board footprint
         board_net = board.pad_nets[key]
-        resolved = result.net_name_map.get(schematic_net, schematic_net)
+        schematic_net = schematic.pad_nets.get(key, "")
+        resolved = (
+            result.net_name_map.get(schematic_net, schematic_net) if schematic_net else ""
+        )
         if board_net != resolved:
             result.pad_net_changes.append(
                 PadNetChange(
