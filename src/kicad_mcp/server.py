@@ -1855,6 +1855,7 @@ def _register_profile_components(
     from .prompts import workflows
     from .resources import analysis, board_state, server_info, studio_context
     from .tools import (
+        annotation_sync,
         capability_parity,
         dfm,
         embedded_files,
@@ -1888,6 +1889,7 @@ def _register_profile_components(
     router.register(server)
     project.register(server)
     capability_parity.register(server)
+    annotation_sync.register(server)
     menu_navigation.register(server)
     embedded_files.register(server)
 
