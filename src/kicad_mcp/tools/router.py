@@ -161,6 +161,20 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
             "project_remove_embedded_file",
         ],
     },
+    "menus": {
+        "description": (
+            "Navigate KiCad's GUI menu surface and drive menu commands headlessly."
+        ),
+        "tools": [
+            "kicad_menu_frames",
+            "kicad_menu_tree",
+            "kicad_menu_search",
+            "kicad_menu_describe",
+            "kicad_menu_coverage",
+            "kicad_menu_export_map",
+            "kicad_menu_invoke",
+        ],
+    },
     "pcb_read": {
         "description": "Read PCB state including tracks, vias, footprints, nets, and layers.",
         "tools": [
@@ -628,6 +642,9 @@ _REVIEW_TOOLS: tuple[str, ...] = (
     "kicad_get_server_info",
     "kicad_list_tool_categories",
     "kicad_get_tools_in_category",
+    "kicad_menu_search",
+    "kicad_menu_describe",
+    "kicad_menu_coverage",
     "project_get_next_action",
     "project_design_workflow",
     "pcb_get_board_summary",

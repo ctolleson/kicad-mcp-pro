@@ -65,6 +65,19 @@
         "local-filesystem"
       ]
     },
+    "menus": {
+      "canarySurfaces": [
+        "read"
+      ],
+      "description": "Navigate KiCad's GUI menu surface and drive menu commands headlessly.",
+      "fallbackPolicy": "Menu discovery reads a generated catalog with no KiCad dependency; invocation shells out to KiCad CLI and never touches the GUI.",
+      "kicad11Support": "independent",
+      "mutationGuard": null,
+      "preferredBackends": [
+        "local-engine",
+        "kicad-cli"
+      ]
+    },
     "pcb_read": {
       "canarySurfaces": [
         "read"
@@ -310,6 +323,25 @@
             "unavailable": 23
           },
           "toolCount": 23
+        },
+        "menus": {
+          "availableCount": 7,
+          "blockedCount": 0,
+          "canarySurfaces": [
+            "read"
+          ],
+          "fallbackPolicy": "Menu discovery reads a generated catalog with no KiCad dependency; invocation shells out to KiCad CLI and never touches the GUI.",
+          "kicad11Support": "independent",
+          "mutationGuard": null,
+          "preferredBackends": [
+            "local-engine",
+            "kicad-cli"
+          ],
+          "selectedBackends": {
+            "local-engine": 6,
+            "local-filesystem": 1
+          },
+          "toolCount": 7
         },
         "pcb_read": {
           "availableCount": 25,
@@ -636,6 +668,25 @@
           },
           "toolCount": 23
         },
+        "menus": {
+          "availableCount": 7,
+          "blockedCount": 0,
+          "canarySurfaces": [
+            "read"
+          ],
+          "fallbackPolicy": "Menu discovery reads a generated catalog with no KiCad dependency; invocation shells out to KiCad CLI and never touches the GUI.",
+          "kicad11Support": "independent",
+          "mutationGuard": null,
+          "preferredBackends": [
+            "local-engine",
+            "kicad-cli"
+          ],
+          "selectedBackends": {
+            "local-engine": 6,
+            "local-filesystem": 1
+          },
+          "toolCount": 7
+        },
         "pcb_read": {
           "availableCount": 27,
           "blockedCount": 0,
@@ -961,6 +1012,25 @@
           },
           "toolCount": 23
         },
+        "menus": {
+          "availableCount": 7,
+          "blockedCount": 0,
+          "canarySurfaces": [
+            "read"
+          ],
+          "fallbackPolicy": "Menu discovery reads a generated catalog with no KiCad dependency; invocation shells out to KiCad CLI and never touches the GUI.",
+          "kicad11Support": "independent",
+          "mutationGuard": null,
+          "preferredBackends": [
+            "local-engine",
+            "kicad-cli"
+          ],
+          "selectedBackends": {
+            "local-engine": 6,
+            "local-filesystem": 1
+          },
+          "toolCount": 7
+        },
         "pcb_read": {
           "availableCount": 27,
           "blockedCount": 0,
@@ -1195,11 +1265,11 @@
   },
   "schemaVersion": "1.0.0",
   "summary": {
-    "categoryCount": 16,
+    "categoryCount": 17,
     "previewBaseline": "11.x",
     "publicSupportClaim": "KiCad 11 remains preview until native canaries pass.",
     "stableBaseline": "10.0.x",
-    "toolCount": 387
+    "toolCount": 394
   },
   "tools": [
     {
@@ -3096,6 +3166,174 @@
       "runtime": "none",
       "tier": "read",
       "tool": "kicad_list_tool_categories",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_coverage",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_describe",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_export_map",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_frames",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-filesystem",
+          "mutationGuard": "atomic-write-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-filesystem",
+          "mutationGuard": "atomic-write-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-filesystem",
+          "mutationGuard": "atomic-write-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "kicad_menu_invoke",
+      "writesFiles": true
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_search",
+      "writesFiles": false
+    },
+    {
+      "category": "menus",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "kicad_menu_tree",
       "writesFiles": false
     },
     {

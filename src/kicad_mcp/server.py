@@ -1862,6 +1862,7 @@ def _register_profile_components(
         export,
         library,
         manufacturing,
+        menu_navigation,
         net_analysis,
         pcb,
         power_integrity,
@@ -1886,6 +1887,7 @@ def _register_profile_components(
     router.register(server)
     project.register(server)
     capability_parity.register(server)
+    menu_navigation.register(server)
     embedded_files.register(server)
 
     if "pcb_read" in enabled or "pcb_write" in enabled:
