@@ -1865,6 +1865,7 @@ def _register_profile_components(
         menu_navigation,
         net_analysis,
         pcb,
+        pcb_board_setup,
         power_integrity,
         project,
         routing,
@@ -1892,6 +1893,7 @@ def _register_profile_components(
 
     if "pcb_read" in enabled or "pcb_write" in enabled:
         pcb.register(server)
+        pcb_board_setup.register(server)
         net_analysis.register(server)
         test_points.register(server)
     if "schematic" in enabled:
