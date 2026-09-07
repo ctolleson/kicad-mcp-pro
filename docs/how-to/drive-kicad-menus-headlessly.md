@@ -57,6 +57,41 @@ Three things it will not do:
   `ipc` and `gui-only` commands it explains the route instead of reporting a run that
   never happened. Pass `dry_run=true` to see the exact command first.
 
+## Bulk board edits with no CLI verb
+
+Several Edit and Tools menu commands exist only as modal dialogs — KiCad exposes no
+`kicad-cli` verb and no IPC command for them. Those are driven by editing the board
+file directly:
+
+| Menu command | Tool |
+|---|---|
+| Edit > Swap Layers… | `pcb_swap_layers` |
+| Edit > Global Deletions… | `pcb_global_delete` |
+| Tools > Cleanup Tracks & Vias… | `pcb_cleanup_tracks_and_vias` |
+| Board > Zone Manager… | `pcb_list_zones`, `pcb_set_zone_properties` |
+
+```text
+pcb_swap_layers({"F.Cu": "B.Cu", "B.Cu": "F.Cu"})
+pcb_global_delete(item_types=["vias"], nets=["GND"], dry_run=true)
+```
+
+Three things to know about them:
+
+- **`pcb_global_delete` defaults to `dry_run=true`.** It is destructive and unbounded,
+  so it reports the count first; pass `dry_run=false` to actually delete. Locked items
+  are kept unless you ask for them.
+- **They match the dialog's scope.** Like KiCad, they act on top-level board items, so
+  silkscreen text belonging to a footprint is part of that footprint and is not matched
+  by `text`.
+- **Nets are named, not numbered.** KiCad 10 records the net name on each item and no
+  longer writes a board-level net table; `pcb_list_nets_on_board` lists what is
+  actually there. Numeric codes still work on KiCad 9 and earlier boards.
+
+`pcb_cleanup_tracks_and_vias` removes zero-length and exactly-duplicated tracks and
+vias. It deliberately does **not** merge collinear segments: that is only safe when the
+shared endpoint carries no other connection, which needs full connectivity analysis
+rather than a file edit.
+
 ## Auditing coverage
 
 ```text

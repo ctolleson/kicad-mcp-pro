@@ -15501,11 +15501,11 @@
    "friendly_name": "Zone Manager...",
    "tooltip": "Show the zone manager dialog",
    "default_hotkey": "",
-   "channel": "file",
-   "status": "gap",
-   "mcp_tool": "",
+   "channel": "mcp",
+   "status": "partial",
+   "mcp_tool": "pcb_list_zones",
    "cli_command": [],
-   "notes": "Zone Manager edits zone priority, fill mode and net assignment in the board file. No MCP tool drives it yet; the data lives in the (zone ...) blocks of .kicad_pcb.",
+   "notes": "pcb_list_zones reports every zone; pcb_set_zone_properties edits priority, name, minimum thickness and fill state (clearing stale fill geometry when unfilled). Net reassignment and per-zone clearance/thermal settings are not exposed yet.",
    "binding_source": "override",
    "placements": [
     {
@@ -16420,11 +16420,11 @@
    "friendly_name": "Cleanup Tracks & Vias...",
    "tooltip": "Cleanup redundant items, shorting items, etc.",
    "default_hotkey": "",
-   "channel": "file",
-   "status": "gap",
-   "mcp_tool": "",
+   "channel": "mcp",
+   "status": "partial",
+   "mcp_tool": "pcb_cleanup_tracks_and_vias",
    "cli_command": [],
-   "notes": "Track/via cleanup (duplicate, dangling, collinear merge) has no headless verb.",
+   "notes": "Removes zero-length and exactly-duplicated tracks and vias. Collinear segment merging is deliberately excluded: it is only safe when the shared endpoint has no other connection, which needs full connectivity analysis rather than a file edit.",
    "binding_source": "override",
    "placements": [
     {
@@ -16519,11 +16519,11 @@
    "friendly_name": "Global Deletions...",
    "tooltip": "Delete tracks, footprints and graphic items from board",
    "default_hotkey": "",
-   "channel": "file",
-   "status": "gap",
-   "mcp_tool": "",
+   "channel": "mcp",
+   "status": "covered",
+   "mcp_tool": "pcb_global_delete",
    "cli_command": [],
-   "notes": "Global deletions by item class; a board-file rewrite.",
+   "notes": "Deletes top-level board items by class, optionally filtered by layer and net, and skips locked items by default. Like the dialog, it does not reach items that belong to a footprint.",
    "binding_source": "override",
    "placements": [
     {
@@ -16588,11 +16588,11 @@
    "friendly_name": "Swap Layers...",
    "tooltip": "Move tracks or drawings from one layer to another",
    "default_hotkey": "",
-   "channel": "file",
-   "status": "gap",
-   "mcp_tool": "",
+   "channel": "mcp",
+   "status": "covered",
+   "mcp_tool": "pcb_swap_layers",
    "cli_command": [],
-   "notes": "Layer swap is a bulk rewrite of layer references in .kicad_pcb.",
+   "notes": "Rewrites layer references throughout the board file. The mapping is applied simultaneously, so F.Cu<->B.Cu is a true swap; stackup layer definitions and wildcard pad layers are left alone.",
    "binding_source": "override",
    "placements": [
     {
@@ -18353,13 +18353,13 @@
  "coverage": {
   "overall": {
    "total": 346,
-   "covered": 94,
-   "partial": 32,
-   "gap": 26,
+   "covered": 96,
+   "partial": 34,
+   "gap": 22,
    "gui_only": 194,
    "denominator": 152,
-   "coverage_pct": 61.8,
-   "driven_pct": 82.9
+   "coverage_pct": 63.2,
+   "driven_pct": 85.5
   },
   "frames": {
    "kicad_manager": {
@@ -18402,13 +18402,13 @@
     "title": "PCB Editor (Pcbnew)",
     "menu_items": 166,
     "total": 166,
-    "covered": 32,
-    "partial": 16,
-    "gap": 18,
+    "covered": 34,
+    "partial": 18,
+    "gap": 14,
     "gui_only": 100,
     "denominator": 66,
-    "coverage_pct": 48.5,
-    "driven_pct": 72.7
+    "coverage_pct": 51.5,
+    "driven_pct": 78.8
    },
    "footprint_editor": {
     "title": "Footprint Editor",

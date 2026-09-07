@@ -107,6 +107,7 @@ from ..utils.units import _coord_nm, mm_to_nm, nm_to_mm
 from . import (
     pcb_basic_inspection,
     pcb_board_inspection,
+    pcb_file_edits,
     pcb_file_inspection,
     pcb_groups_inspection,
     pcb_origin_management,
@@ -4982,6 +4983,17 @@ def register(mcp: FastMCP) -> None:
                 nm_to_mm=nm_to_mm,
                 connection_errors=(KiCadConnectionError, OSError),
             )
+        ),
+    )
+
+    pcb_file_edits.register(
+        mcp,
+        pcb_file_edits.PcbFileEditDependencies(
+            transactional_board_write=_transactional_board_write,
+            read_board_text=lambda: _get_pcb_file_for_sync().read_text(
+                encoding="utf-8", errors="ignore"
+            ),
+            configured_board_file=_configured_board_file,
         ),
     )
 

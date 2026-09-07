@@ -308,11 +308,13 @@ overrides:
       (page/title block). Field-name templates and bus alias editing are not exposed.
 
   "pcbnew.Control.zonesManager":
-    channel: file
-    status: gap
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_list_zones
     notes: >-
-      Zone Manager edits zone priority, fill mode and net assignment in the board file.
-      No MCP tool drives it yet; the data lives in the (zone ...) blocks of .kicad_pcb.
+      pcb_list_zones reports every zone; pcb_set_zone_properties edits priority, name,
+      minimum thickness and fill state (clearing stale fill geometry when unfilled).
+      Net reassignment and per-zone clearance/thermal settings are not exposed yet.
 
   "pcbnew.ZoneFiller.zoneFillAll":
     channel: cli
@@ -511,9 +513,13 @@ overrides:
     notes: "Teardrop settings live in the board file's (teardrops ...) blocks."
 
   "pcbnew.GlobalEdit.cleanupTracksAndVias":
-    channel: file
-    status: gap
-    notes: "Track/via cleanup (duplicate, dangling, collinear merge) has no headless verb."
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_cleanup_tracks_and_vias
+    notes: >-
+      Removes zero-length and exactly-duplicated tracks and vias. Collinear segment
+      merging is deliberately excluded: it is only safe when the shared endpoint has no
+      other connection, which needs full connectivity analysis rather than a file edit.
 
   "pcbnew.GlobalEdit.cleanupGraphics":
     channel: file
@@ -526,14 +532,22 @@ overrides:
     notes: "Unused-pad removal is a per-pad board-file property."
 
   "pcbnew.GlobalEdit.swapLayers":
-    channel: file
-    status: gap
-    notes: "Layer swap is a bulk rewrite of layer references in .kicad_pcb."
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_swap_layers
+    notes: >-
+      Rewrites layer references throughout the board file. The mapping is applied
+      simultaneously, so F.Cu<->B.Cu is a true swap; stackup layer definitions and
+      wildcard pad layers are left alone.
 
   "pcbnew.GlobalEdit.globalDeletions":
-    channel: file
-    status: gap
-    notes: "Global deletions by item class; a board-file rewrite."
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_global_delete
+    notes: >-
+      Deletes top-level board items by class, optionally filtered by layer and net,
+      and skips locked items by default. Like the dialog, it does not reach items that
+      belong to a footprint.
 
   "pcbnew.GlobalEdit.migrate3DModels":
     channel: mcp

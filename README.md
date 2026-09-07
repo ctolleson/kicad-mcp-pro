@@ -145,6 +145,11 @@ be driven headlessly and how. `kicad_menu_invoke()` then runs the ones `kicad-cl
 supports. Currently **61.8%** of the 152 headlessly-reachable menu commands are driven
 by a tool; the remaining 194 commands are GUI-only in KiCad itself.
 
+Menu commands that KiCad exposes only as modal dialogs — Swap Layers, Global Deletions,
+Cleanup Tracks & Vias, the Zone Manager — have no `kicad-cli` verb and no IPC command,
+so they are driven by editing the board file directly through a round-tripping
+S-expression parser. Destructive ones report a count before they act.
+
 The published documentation site is available at
 [https://oaslananka.github.io/kicad-mcp-pro/](https://oaslananka.github.io/kicad-mcp-pro/).
 
