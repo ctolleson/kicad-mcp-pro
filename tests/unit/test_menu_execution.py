@@ -106,7 +106,9 @@ def test_relative_output_lands_inside_the_workspace(board_project: Path) -> None
 
 def test_absolute_output_outside_the_workspace_is_blocked(board_project: Path) -> None:
     with pytest.raises(UnsafePathError):
-        invoke("pcbnew.DRCTool.runDRC", output="/tmp/escape.json", dry_run=True)
+        # An absolute path outside the workspace: the guard must reject it, so nothing
+        # is ever written here.
+        invoke("pcbnew.DRCTool.runDRC", output="/tmp/escape.json", dry_run=True)  # noqa: S108
 
 
 def test_missing_project_is_reported_clearly(monkeypatch: pytest.MonkeyPatch) -> None:

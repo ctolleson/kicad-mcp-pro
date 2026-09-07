@@ -53,6 +53,7 @@ nav:
       - Tutorials:
           - Getting Started Tutorial: tutorials/getting-started.md
       - How-to Guides: how-to/index.md
+      - Drive KiCad Menus Headlessly: how-to/drive-kicad-menus-headlessly.md
       - Accessibility: accessibility.md
       - Internationalization: internationalization.md
       - Installation: installation.md
@@ -79,6 +80,7 @@ nav:
       - Runtime Matrix: status/runtime-matrix.md
       - Runtime Policy Matrix: status/runtime-policy-matrix.md
       - Capability Parity: compatibility/capability-parity.generated.md
+      - KiCad Menu Coverage: compatibility/kicad-menu-coverage.generated.md
       - Work-Order Audit: status/work-order-audit-2026-06-17.md
   - Install, Packaging, and Distribution:
       - Docker Install: install/docker.md

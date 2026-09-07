@@ -70,9 +70,7 @@ def test_catalog_covers_every_kicad_frame(index: dict[str, Any]) -> None:
 def test_every_menu_command_has_an_explicit_binding(index: dict[str, Any]) -> None:
     """No command may silently fall through to the catch-all default binding."""
     defaulted = [
-        name
-        for name, entry in index["actions"].items()
-        if entry["binding_source"] == "default"
+        name for name, entry in index["actions"].items() if entry["binding_source"] == "default"
     ]
     assert not defaulted, (
         f"{len(defaulted)} menu commands have no explicit binding: {defaulted[:10]}"
@@ -276,3 +274,17 @@ def test_every_binding_override_names_a_real_menu_command() -> None:
     known = set(get_index()["actions"])
     unknown = sorted(set(bindings["overrides"]) - known)
     assert not unknown, f"bindings.yaml overrides commands KiCad does not have: {unknown}"
+
+
+def test_generated_coverage_doc_is_in_sync() -> None:
+    """The published coverage report must match a fresh render of the index."""
+    pytest.importorskip("yaml")
+    import scripts.build_menu_index as builder
+
+    rendered = builder.render_markdown(get_index())
+    committed = (REPO_ROOT / "docs/compatibility/kicad-menu-coverage.generated.md").read_text(
+        encoding="utf-8"
+    )
+    assert rendered == committed, (
+        "kicad-menu-coverage.generated.md is stale — regenerate with scripts/build_menu_index.py"
+    )

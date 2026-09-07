@@ -448,9 +448,10 @@ def _parse_stackup_specs_from_board_text(content: str) -> list[StackupLayerSpec]
                     # A stackup may name layers the editing vocabulary does not model;
                     # keep the board's own name rather than dropping the layer.
                     layer_name = raw_name.replace(".", "_")
-        else:
-            assert dielectric is not None
+        elif dielectric is not None:
             layer_name = f"dielectric_{dielectric.group(1)}"
+        else:  # pragma: no cover - guarded by the match check above
+            continue
         material_match = re.search(r'\(material\s+"([^"]+)"\)', layer_block)
         epsilon_match = re.search(rf"\(epsilon_r\s+({FLOAT_PATTERN})\)", layer_block)
         loss_match = re.search(rf"\(loss_tangent\s+({FLOAT_PATTERN})\)", layer_block)

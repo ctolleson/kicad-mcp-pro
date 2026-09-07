@@ -33,9 +33,7 @@ _STATUS_LABEL = {
 def _format_action(action: MenuAction, *, verbose: bool = False) -> list[str]:
     """Render one menu command as markdown lines."""
     lines = [f"**{action.label}** — `{action.action_name}`"]
-    lines.append(
-        f"  - status `{_STATUS_LABEL[action.status]}` via channel `{action.channel}`"
-    )
+    lines.append(f"  - status `{_STATUS_LABEL[action.status]}` via channel `{action.channel}`")
     for location in action.menu_paths:
         lines.append(f"  - menu: {location}")
     if action.mcp_tool:
@@ -114,9 +112,7 @@ def register(mcp: FastMCP) -> None:
             tree = render_tree(frame, max_depth=max_depth, annotate=annotate)
         except KeyError:
             return f"Unknown frame '{frame}'. Available: {', '.join(frame_ids())}"
-        legend = (
-            "\n\nLegend: + covered · ~ partial · ! headless path, no tool yet · . GUI-only"
-        )
+        legend = "\n\nLegend: + covered · ~ partial · ! headless path, no tool yet · . GUI-only"
         return tree + legend
 
     @mcp.tool()
@@ -178,6 +174,11 @@ def register(mcp: FastMCP) -> None:
         lines.append("")
         if resolved.channel == "mcp":
             lines.append(f"**How to run it:** call `{resolved.mcp_tool}`.")
+            if resolved.cli_command:
+                lines.append(
+                    f"  - or `kicad_menu_invoke('{resolved.action_name}')` to run "
+                    f"`kicad-cli {' '.join(resolved.cli_command)}` directly."
+                )
         elif resolved.channel == "cli":
             options = sorted(cli_options(resolved.cli_command))
             lines.append(
@@ -239,9 +240,7 @@ def register(mcp: FastMCP) -> None:
                 lines.extend(["", f"## Open gaps ({len(gaps)})", ""])
                 for action in gaps:
                     note = f" — {action.notes}" if action.notes else ""
-                    lines.append(
-                        f"- **{action.label}** (`{action.channel}`){note}"
-                    )
+                    lines.append(f"- **{action.label}** (`{action.channel}`){note}")
         return "\n".join(lines)
 
     @mcp.tool()

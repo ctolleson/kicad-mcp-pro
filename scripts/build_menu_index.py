@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ CHANNELS = ("mcp", "cli", "file", "ipc", "gui-only")
 STATUSES = ("covered", "partial", "gap", "gui-only")
 
 
-def _walk(items: list[dict[str, Any]]):
+def _walk(items: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
     for item in items:
         if item["kind"] == "action":
             yield item
@@ -87,9 +88,7 @@ def build_index(catalog: dict[str, Any], bindings: dict[str, Any]) -> dict[str, 
                         "notes": (binding.get("notes") or "").strip(),
                         "binding_source": binding["source"],
                     }
-                placements.setdefault(name, []).append(
-                    {"frame": frame["id"], "path": item["path"]}
-                )
+                placements.setdefault(name, []).append({"frame": frame["id"], "path": item["path"]})
 
     for name, entry in resolved.items():
         entry["placements"] = placements[name]
@@ -149,14 +148,109 @@ def build_index(catalog: dict[str, Any], bindings: dict[str, Any]) -> dict[str, 
     }
 
 
+
+def render_markdown(index: dict[str, Any]) -> str:
+    """Render the human-readable coverage report shipped in docs/compatibility."""
+    overall = index["coverage"]["overall"]
+    lines = [
+        "# KiCad Menu Coverage (generated)",
+        "",
+        "Machine-generated from KiCad's own C++ menu sources plus "
+        "`docs/compatibility/kicad-menu-bindings.yaml`. Refresh with "
+        "`uv run python scripts/extract_kicad_menus.py` then "
+        "`uv run python scripts/build_menu_index.py`.",
+        "",
+        f"KiCad baseline: `{index['kicad_version']}`",
+        "",
+        (
+            f"**Overall: {overall['covered']} / {overall['denominator']} "
+            f"headlessly-reachable menu commands driven = "
+            f"{overall['coverage_pct']}%** "
+            f"({overall['partial']} partial, {overall['gap']} gap; "
+            f"{overall['gui_only']} GUI-only with no KiCad API, excluded from the "
+            "denominator)."
+        ),
+        "",
+        "A command is `gui-only` when KiCad itself offers no cli, ipc or file path for "
+        "it. Those are KiCad limits, not gaps in this server, so they leave the "
+        "denominator — the same convention the capability-parity matrix uses.",
+        "",
+        "## Coverage by application frame",
+        "",
+        "| Frame | Commands | Coverage | Covered | Partial | Gap | GUI-only |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for frame_id, stats in index["coverage"]["frames"].items():
+        lines.append(
+            f"| `{frame_id}` | {stats['total']} | {stats['coverage_pct']}% | "
+            f"{stats['covered']} | {stats['partial']} | {stats['gap']} | "
+            f"{stats['gui_only']} |"
+        )
+    lines.append(
+        f"| **Overall (distinct)** | {overall['total']} | **{overall['coverage_pct']}%** | "
+        f"{overall['covered']} | {overall['partial']} | {overall['gap']} | "
+        f"{overall['gui_only']} |"
+    )
+
+    gaps = sorted(
+        (entry for entry in index["actions"].values() if entry["status"] == "gap"),
+        key=lambda entry: entry["label"].casefold(),
+    )
+    lines.extend(
+        [
+            "",
+            "## Closeable surface",
+            "",
+            "Menu commands KiCad exposes outside the GUI that no MCP tool drives yet.",
+            "",
+            "| Command | Channel | Menu location | Notes |",
+            "|---|---|---|---|",
+        ]
+    )
+    for entry in gaps:
+        placement = entry["placements"][0]
+        location = f"{placement['frame']}: {' > '.join(placement['path'])}"
+        notes = entry["notes"].replace("\n", " ").replace("|", "\\|")
+        lines.append(
+            f"| {entry['label']} | `{entry['channel']}` | {location} | {notes} |"
+        )
+
+    partials = sorted(
+        (entry for entry in index["actions"].values() if entry["status"] == "partial"),
+        key=lambda entry: entry["label"].casefold(),
+    )
+    lines.extend(
+        [
+            "",
+            "## Partial coverage",
+            "",
+            "| Command | MCP tool | Notes |",
+            "|---|---|---|",
+        ]
+    )
+    for entry in partials:
+        notes = entry["notes"].replace("\n", " ").replace("|", "\\|")
+        tool = f"`{entry['mcp_tool']}`" if entry["mcp_tool"] else "—"
+        lines.append(f"| {entry['label']} | {tool} | {notes} |")
+
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     root = Path(__file__).resolve().parent.parent
-    parser.add_argument("--catalog", type=Path, default=root / "src/kicad_mcp/menus/menu_catalog.json")
+    parser.add_argument(
+        "--catalog", type=Path, default=root / "src/kicad_mcp/menus/menu_catalog.json"
+    )
     parser.add_argument(
         "--bindings", type=Path, default=root / "docs/compatibility/kicad-menu-bindings.yaml"
     )
     parser.add_argument("--out", type=Path, default=root / "src/kicad_mcp/menus/menu_index.json")
+    parser.add_argument(
+        "--markdown",
+        type=Path,
+        default=root / "docs/compatibility/kicad-menu-coverage.generated.md",
+    )
     args = parser.parse_args()
 
     catalog = json.loads(args.catalog.read_text(encoding="utf-8"))
@@ -164,9 +258,11 @@ def main() -> int:
 
     index = build_index(catalog, bindings)
     args.out.write_text(json.dumps(index, indent=1, sort_keys=False) + "\n", encoding="utf-8")
+    args.markdown.write_text(render_markdown(index), encoding="utf-8")
 
     overall = index["coverage"]["overall"]
     print(f"Wrote {args.out} ({args.out.stat().st_size / 1024:.0f} KiB)")
+    print(f"Wrote {args.markdown}")
     print(
         f"  {overall['total']} distinct menu commands: "
         f"{overall['covered']} covered, {overall['partial']} partial, "

@@ -88,9 +88,7 @@ def _input_file(command: tuple[str, ...]) -> Path | None:
     root = command[0] if command else ""
     if root in _PCB_ROOTS:
         if cfg.pcb_file is None or not cfg.pcb_file.exists():
-            raise MenuInvocationError(
-                "No PCB file is configured. Call kicad_set_project() first."
-            )
+            raise MenuInvocationError("No PCB file is configured. Call kicad_set_project() first.")
         return cfg.pcb_file
     if root in _SCH_ROOTS:
         if cfg.sch_file is None or not cfg.sch_file.exists():
@@ -186,16 +184,12 @@ def invoke(
             argv.extend(["--output", str(destination)])
             outputs.append(str(destination))
         else:
-            raise MenuInvocationError(
-                f"`kicad-cli {' '.join(command)}` takes no --output option."
-            )
+            raise MenuInvocationError(f"`kicad-cli {' '.join(command)}` takes no --output option.")
 
     source = _input_file(command)
     if source is not None:
         argv.append(str(source))
 
-    cfg = get_config()
-    full = (str(cfg.kicad_cli), *argv)
     if dry_run:
         return InvocationResult(
             action_name=action.action_name,

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from kicad_mcp.models.pcb import StackupLayerSpec
 from kicad_mcp.tools.pcb import _parse_stackup_specs_from_board_text
 
 KICAD_10_BOARD = """\
@@ -70,7 +71,7 @@ KICAD_10_BOARD = """\
 
 
 @pytest.fixture(scope="module")
-def specs():
+def specs() -> list[StackupLayerSpec]:
     parsed = _parse_stackup_specs_from_board_text(KICAD_10_BOARD)
     assert parsed is not None, "KiCad 10 stackup block failed to parse"
     return parsed

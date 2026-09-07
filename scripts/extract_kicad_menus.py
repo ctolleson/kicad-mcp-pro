@@ -21,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -286,9 +287,7 @@ def parse_menu_source(text: str) -> tuple[dict[str, MenuNode], list[tuple[str, s
 
         submenu = _ADD_SUBMENU.search(statement)
         if submenu and submenu.group(1) in nodes and submenu.group(2) in nodes:
-            nodes[submenu.group(1)].items.append(
-                {"kind": "submenu", "variable": submenu.group(2)}
-            )
+            nodes[submenu.group(1)].items.append({"kind": "submenu", "variable": submenu.group(2)})
             continue
 
         for builder, description in _DYNAMIC_BUILDERS.items():
@@ -417,9 +416,7 @@ def build_catalog(root: Path, version: str) -> dict[str, Any]:
             print(f"  ! missing menubar source: {relative}", file=sys.stderr)
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        body = _function_body(text, "doReCreateMenuBar") or _function_body(
-            text, "ReCreateMenuBar"
-        )
+        body = _function_body(text, "doReCreateMenuBar") or _function_body(text, "ReCreateMenuBar")
         if not body:
             print(f"  ! no menubar function found in {relative}", file=sys.stderr)
             continue
@@ -444,9 +441,7 @@ def build_catalog(root: Path, version: str) -> dict[str, Any]:
                     {
                         "label": title,
                         "path": [title],
-                        "items": _resolve(
-                            node, help_nodes, actions, [title], {variable}, stats
-                        ),
+                        "items": _resolve(node, help_nodes, actions, [title], {variable}, stats),
                     }
                 )
 
@@ -485,7 +480,7 @@ def build_catalog(root: Path, version: str) -> dict[str, Any]:
     }
 
 
-def _walk_actions(items: list[dict[str, Any]]):
+def _walk_actions(items: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
     for item in items:
         if item["kind"] == "action":
             yield item

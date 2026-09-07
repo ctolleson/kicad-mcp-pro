@@ -51,7 +51,8 @@ class MenuAction:
 @lru_cache(maxsize=1)
 def get_index() -> dict[str, Any]:
     """Load and cache the generated menu index."""
-    return json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+    loaded: dict[str, Any] = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+    return loaded
 
 
 def kicad_version() -> str:
