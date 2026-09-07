@@ -107,6 +107,7 @@ from ..utils.units import _coord_nm, mm_to_nm, nm_to_mm
 from . import (
     pcb_basic_inspection,
     pcb_board_inspection,
+    pcb_file_edits,
     pcb_file_inspection,
     pcb_groups_inspection,
     pcb_origin_management,
@@ -418,18 +419,39 @@ def _parse_stackup_specs_from_board_text(content: str) -> list[StackupLayerSpec]
             break
         cursor = start + length
         stripped = layer_block.lstrip()
-        quoted = re.match(r'\(layer\s+"([^"]+)"\s+(\d+)', stripped)
+        # Inside (setup (stackup ...)) KiCad writes the layer name alone —
+        # `(layer "F.Cu"` and `(layer "dielectric 1"` — with no ordinal index. The
+        # indexed form `(layer "F.Cu" 0 ...)` only appears in the board's top-level
+        # (layers ...) list, so requiring an index here matched nothing and made every
+        # headless stackup read fail.
+        quoted = re.match(r'\(layer\s+"([^"]+)"', stripped)
         dielectric = re.match(r"\(layer\s+dielectric\s+(\d+)", stripped)
-        if quoted is not None:
-            layer_name = resolve_layer_name(quoted.group(1))
-        elif dielectric is not None:
-            layer_name = f"dielectric_{dielectric.group(1)}"
-        else:
+        if quoted is None and dielectric is None:
             continue
 
         type_match = re.search(r'\(type\s+"([^"]+)"\)', layer_block)
         thickness_match = re.search(rf"\(thickness\s+({FLOAT_PATTERN})\)", layer_block)
         if thickness_match is None:
+            # Silkscreen and paste layers carry no thickness and contribute nothing to
+            # the stack; skip them before resolving a name, since they are also outside
+            # the copper/technical layer vocabulary.
+            continue
+
+        if quoted is not None:
+            raw_name = quoted.group(1)
+            quoted_dielectric = re.fullmatch(r"dielectric\s+(\d+)", raw_name)
+            if quoted_dielectric is not None:
+                layer_name = f"dielectric_{quoted_dielectric.group(1)}"
+            else:
+                try:
+                    layer_name = resolve_layer_name(raw_name)
+                except ValueError:
+                    # A stackup may name layers the editing vocabulary does not model;
+                    # keep the board's own name rather than dropping the layer.
+                    layer_name = raw_name.replace(".", "_")
+        elif dielectric is not None:
+            layer_name = f"dielectric_{dielectric.group(1)}"
+        else:  # pragma: no cover - guarded by the match check above
             continue
         material_match = re.search(r'\(material\s+"([^"]+)"\)', layer_block)
         epsilon_match = re.search(rf"\(epsilon_r\s+({FLOAT_PATTERN})\)", layer_block)
@@ -4961,6 +4983,17 @@ def register(mcp: FastMCP) -> None:
                 nm_to_mm=nm_to_mm,
                 connection_errors=(KiCadConnectionError, OSError),
             )
+        ),
+    )
+
+    pcb_file_edits.register(
+        mcp,
+        pcb_file_edits.PcbFileEditDependencies(
+            transactional_board_write=_transactional_board_write,
+            read_board_text=lambda: _get_pcb_file_for_sync().read_text(
+                encoding="utf-8", errors="ignore"
+            ),
+            configured_board_file=_configured_board_file,
         ),
     )
 

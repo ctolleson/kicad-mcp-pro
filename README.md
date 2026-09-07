@@ -67,7 +67,9 @@ review, **not** a substitute for a 2D/3D field solver, EM/FEA simulation, or for
 sign-off. Live component sourcing uses the JLCPCB public catalog by default; Nexar,
 DigiKey, and Mouser are available only when their API credentials are configured. What
 fraction of KiCad's programmatic surface the server drives is tracked openly in the
-[capability-parity matrix](docs/compatibility/capability-parity.generated.md). Raw tool count and
+[capability-parity matrix](docs/compatibility/capability-parity.generated.md), and the GUI menu
+surface specifically in the
+[menu-coverage report](docs/compatibility/kicad-menu-coverage.generated.md). Raw tool count and
 capability coverage are inventory metrics, not the headline product-quality measure. End-to-end
 task outcome, mutation recovery, corruption, required DRC execution, and manufacturing
 reproducibility are the outcome KPIs. The committed
@@ -128,11 +130,25 @@ The documentation is organized from setup to operation:
 8. [KiCad capability parity](docs/compatibility/capability-parity.generated.md) — how much of KiCad's programmatic surface this server drives
 9. [Error code catalog](docs/errors.md) — stable error codes, retry classes, and recovery
 10. [Work-order audit](docs/status/work-order-audit-2026-06-17.md) — current status of the hardening work order
+11. [Drive KiCad menus headlessly](docs/how-to/drive-kicad-menus-headlessly.md) — reach GUI menu commands without opening KiCad
 
 The `kicad_capability_parity()` tool reports, per workflow domain, what fraction of
 KiCad's programmatically reachable surface this server can drive (currently **76.3%**),
 keeping genuine `gap`s distinct from `gui-only-no-api` items that KiCad exposes no
 headless API for.
+
+The `kicad_menu_*` tools answer the same question from the other direction — starting
+from KiCad's actual GUI menus. The menu tree is extracted from KiCad's C++ sources, so
+all 346 distinct menu commands of KiCad 10.0.6 are addressable by menu path
+(`Inspect > Design Rules Checker`), each carrying an explicit verdict on whether it can
+be driven headlessly and how. `kicad_menu_invoke()` then runs the ones `kicad-cli`
+supports. Currently **61.8%** of the 152 headlessly-reachable menu commands are driven
+by a tool; the remaining 194 commands are GUI-only in KiCad itself.
+
+Menu commands that KiCad exposes only as modal dialogs — Swap Layers, Global Deletions,
+Cleanup Tracks & Vias, the Zone Manager — have no `kicad-cli` verb and no IPC command,
+so they are driven by editing the board file directly through a round-tripping
+S-expression parser. Destructive ones report a count before they act.
 
 The published documentation site is available at
 [https://oaslananka.github.io/kicad-mcp-pro/](https://oaslananka.github.io/kicad-mcp-pro/).

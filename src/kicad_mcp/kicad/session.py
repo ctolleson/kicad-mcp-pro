@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal, Protocol, TypedDict
+from typing import Literal, Protocol, TypedDict, cast
 
 from kipy.errors import ApiError
 from kipy.proto.common import ApiStatusCode
@@ -90,13 +90,13 @@ _DISCONNECT_PATTERNS = (
 def _classify_ipc_error(exc: BaseException) -> IpcErrorKind:
     """Classify an IPC failure by exception *type* first, message only as a fallback.
 
-    Structural exception types (``TimeoutError``, the ``ConnectionError`` family,
-    ``EOFError``) are authoritative and translation-stable. Substring matching on the
-    message is a last resort for the opaque ``RuntimeError``s kipy raises when it
-    cannot surface a typed error — so a localized or reworded message can never flip
-    the classification of a genuinely typed failure.
+    Structural exception types (``TimeoutError``, ``KiCadConnectionTimeoutError``, the
+    ``ConnectionError`` family, ``EOFError``) are authoritative and translation-stable.
+    Substring matching on the message is a last resort for the opaque ``RuntimeError``s
+    kipy raises when it cannot surface a typed error — so a localized or reworded
+    message can never flip the classification of a genuinely typed failure.
     """
-    if isinstance(exc, TimeoutError):
+    if isinstance(exc, (TimeoutError, KiCadConnectionTimeoutError)):
         return "timeout"
     if isinstance(exc, (ConnectionError, EOFError)):
         return "disconnected"
@@ -110,6 +110,19 @@ def _classify_ipc_error(exc: BaseException) -> IpcErrorKind:
     if _is_busy_error(lowered):
         return "busy"
     return "other"
+
+
+def _close_quietly(client: object, logger: object | None = None) -> None:
+    """Close a client that arrived after we stopped waiting for it."""
+    close = getattr(client, "close", None)
+    if not callable(close):
+        return
+    try:
+        close()
+    except Exception as exc:  # noqa: BLE001 - a late client is already being discarded
+        debug = getattr(logger, "debug", None)
+        if callable(debug):
+            debug("kicad_late_client_close_failed", error=str(exc))
 
 
 class KiCadSession:
@@ -237,6 +250,57 @@ class KiCadSession:
 
             return self._client
 
+    def _dial_with_deadline(self, kwargs: KiCadKwargs, timeout_s: float) -> object:
+        """Construct the IPC client, giving up if the dial does not complete in time.
+
+        kicad-python dials with ``pynng.Req0(block_on_dial=True)``. Its send and recv
+        timeouts bound individual messages, but the dial itself blocks forever when the
+        socket file exists and KiCad is not servicing it — a modal dialog or a busy GUI
+        is enough. That turns any IPC call into an indefinite hang.
+
+        The dial has no cancellation API, so it runs on a daemon thread and we stop
+        waiting at the deadline. A connection that lands late is closed rather than
+        leaked, and the abandoned thread cannot keep the process alive.
+        """
+        state: dict[str, object | None] = {"client": None, "error": None}
+        abandoned = False
+        lock = threading.Lock()
+        finished = threading.Event()
+
+        def dial() -> None:
+            nonlocal abandoned
+            try:
+                client = self._client_factory(**kwargs)
+            except BaseException as exc:  # noqa: BLE001 - reported to the caller below
+                with lock:
+                    state["error"] = exc
+                finished.set()
+                return
+            with lock:
+                if abandoned:
+                    _close_quietly(client, self._logger)
+                    return
+                state["client"] = client
+            finished.set()
+
+        threading.Thread(target=dial, name="kicad-ipc-dial", daemon=True).start()
+
+        if not finished.wait(timeout_s):
+            with lock:
+                abandoned = True
+            raise KiCadConnectionTimeoutError(
+                f"KiCad IPC did not accept a connection within {timeout_s:g}s. "
+                "The socket exists but KiCad is not servicing it — a modal dialog or "
+                "a busy editor will do this. Close any open KiCad dialog and retry."
+            )
+
+        with lock:
+            error = state["error"]
+            client = state["client"]
+        if error is not None:
+            raise cast(BaseException, error)
+        return client
+
     def _connect_with_retry(self) -> object:
         """Attempt to connect with exponential backoff.
 
@@ -264,7 +328,7 @@ class KiCadSession:
                     kwargs=list(kwargs.keys()),
                 )
             try:
-                client = self._client_factory(**kwargs)
+                client = self._dial_with_deadline(kwargs, cfg.ipc_connection_timeout)
                 self._last_connect_time = time.monotonic()
                 return client
             except Exception as exc:
@@ -279,6 +343,10 @@ class KiCadSession:
                     )
 
         if last_error is not None and _classify_ipc_error(last_error) == "timeout":
+            # A dial deadline already explains *why* KiCad went quiet and what to do
+            # about it; a generic replacement would throw that diagnosis away.
+            if isinstance(last_error, KiCadConnectionTimeoutError):
+                raise last_error
             raise KiCadConnectionTimeoutError(
                 "Could not connect to KiCad IPC API before the configured timeout."
             ) from last_error

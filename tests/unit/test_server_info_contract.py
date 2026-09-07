@@ -132,6 +132,7 @@ def test_server_info_contract_matches_protocol_schema(monkeypatch, sample_projec
     assert adapter_routing["schemaVersion"] == "1.0.0"
     assert set(adapter_routing["categories"]) == {
         "project",
+        "menus",
         "pcb_read",
         "pcb_write",
         "schematic",

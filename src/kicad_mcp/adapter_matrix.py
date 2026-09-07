@@ -77,6 +77,15 @@ CATEGORY_ADAPTER_POLICIES: dict[str, CategoryAdapterPolicy] = {
             "Use repository and filesystem discovery; use KiCad CLI only for native probes."
         ),
     ),
+    "menus": CategoryAdapterPolicy(
+        preferred_backends=(AdapterBackend.LOCAL_ENGINE, AdapterBackend.KICAD_CLI),
+        kicad11_support=KiCad11Support.INDEPENDENT,
+        canary_surfaces=("read",),
+        fallback_policy=(
+            "Menu discovery reads a generated catalog with no KiCad dependency; "
+            "invocation shells out to KiCad CLI and never touches the GUI."
+        ),
+    ),
     "pcb_read": CategoryAdapterPolicy(
         preferred_backends=(
             AdapterBackend.KICAD_11_HEADLESS_IPC,
