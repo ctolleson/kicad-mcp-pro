@@ -292,3 +292,46 @@ def test_edits_keep_the_document_parseable(board) -> None:
     reparsed = parse(dumps(board))
     assert reparsed.tag == "kicad_pcb"
     assert len(reparsed.children("zone")) == 1
+
+
+# --- Locked items ----------------------------------------------------------
+
+LOCKED_BOARD = """\
+(kicad_pcb
+\t(version 20241229)
+\t(segment (start 1 1) (end 2 2) (layer "F.Cu") (net "N") (locked yes))
+\t(segment (start 3 3) (end 4 4) (layer "F.Cu") (net "N"))
+\t(segment (start 5 5) (end 6 6) (layer "F.Cu") (net "N") (locked no))
+\t(via (at 7 7) (layers "F.Cu" "B.Cu") (net "N") locked)
+\t(via (at 8 8) (layers "F.Cu" "B.Cu") (net "N") (unlocked yes))
+)
+"""
+
+
+def test_locked_items_are_kept_by_default() -> None:
+    """(locked yes) and the legacy bare `locked` flag both protect an item."""
+    root = parse(LOCKED_BOARD)
+    report = global_delete(root, item_types=["tracks", "vias"], locked=False)
+    assert report.counts == {"tracks": 2, "vias": 1}
+    remaining = dumps(root)
+    assert "(locked yes)" in remaining  # the locked track survived
+    assert "(at 7 7)" in remaining  # the bare-flag via survived
+
+
+def test_locked_items_are_deleted_when_lock_state_is_ignored() -> None:
+    root = parse(LOCKED_BOARD)
+    report = global_delete(root, item_types=["tracks", "vias"], locked=None)
+    assert report.counts == {"tracks": 3, "vias": 2}
+
+
+def test_unlocked_is_not_mistaken_for_locked() -> None:
+    """KiCad writes (unlocked yes) on pads; it must not read as a lock."""
+    root = parse(LOCKED_BOARD)
+    global_delete(root, item_types=["vias"], locked=False)
+    assert "(at 8 8)" not in dumps(root)  # the (unlocked yes) via was deleted
+
+
+def test_locked_no_is_treated_as_unlocked() -> None:
+    root = parse(LOCKED_BOARD)
+    global_delete(root, item_types=["tracks"], locked=False)
+    assert "(start 5 5)" not in dumps(root)
