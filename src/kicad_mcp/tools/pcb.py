@@ -970,6 +970,22 @@ def _board_file_nets(content: str) -> dict[str, str]:
     return nets
 
 
+def _block_net_name(block: str, net_names: dict[str, str]) -> str:
+    """The net an item belongs to, across both board formats.
+
+    KiCad 9 and earlier write ``(net 3)`` against a board-level table; KiCad 10
+    dropped the table and writes ``(net "GND")`` on the item. Matching only the
+    numeric form reports every track on a 10.x board as having no net.
+    """
+    match = re.search(r'\(net\s+(?:(\d+)|"([^"]*)")\)', block)
+    if match is None:
+        return "(none)"
+    if match.group(2) is not None:
+        return match.group(2) or "(none)"
+    code = match.group(1)
+    return net_names.get(code, f"net-{code}")
+
+
 def _board_file_segments(content: str) -> list[dict[str, object]]:
     net_names = _board_file_nets(content)
     segments: list[dict[str, object]] = []
@@ -978,7 +994,7 @@ def _board_file_segments(content: str) -> list[dict[str, object]]:
         end = re.search(rf"\(end\s+({FLOAT_PATTERN})\s+({FLOAT_PATTERN})\)", block)
         layer = re.search(r'\(layer\s+"([^"]+)"\)', block)
         width = re.search(rf"\(width\s+({FLOAT_PATTERN})\)", block)
-        net = re.search(r"\(net\s+(\d+)\)", block)
+        net_name = _block_net_name(block, net_names)
         segments.append(
             {
                 "index": index,
@@ -986,9 +1002,7 @@ def _board_file_segments(content: str) -> list[dict[str, object]]:
                 "end": (float(end.group(1)), float(end.group(2))) if end else None,
                 "layer": layer.group(1) if layer else "(unknown)",
                 "width_mm": float(width.group(1)) if width else None,
-                "net": net_names.get(net.group(1), f"net-{net.group(1)}")
-                if net is not None
-                else "(none)",
+                "net": net_name,
             }
         )
     return segments
@@ -1006,7 +1020,7 @@ def _board_file_vias(content: str) -> list[dict[str, object]]:
         size = re.search(rf"\(size\s+({FLOAT_PATTERN})\)", block)
         drill = re.search(rf"\(drill\s+({FLOAT_PATTERN})\)", block)
         layers = re.search(r"\(layers\s+([^)]+)\)", block)
-        net = re.search(r"\(net\s+(\d+)\)", block)
+        net_name = _block_net_name(block, net_names)
         via_type_match = re.match(r"\(via\s+([A-Za-z_-]+)", block.strip())
         via_type = via_type_match.group(1) if via_type_match is not None else "through"
         vias.append(
@@ -1018,9 +1032,7 @@ def _board_file_vias(content: str) -> list[dict[str, object]]:
                 "diameter_mm": float(size.group(1)) if size else None,
                 "drill_mm": float(drill.group(1)) if drill else None,
                 "layers": _quoted_values(layers.group(1)) if layers else [],
-                "net": net_names.get(net.group(1), f"net-{net.group(1)}")
-                if net is not None
-                else "(none)",
+                "net": net_name,
                 "type": via_type,
             }
         )
@@ -1032,8 +1044,13 @@ def _board_file_zones(content: str) -> list[dict[str, object]]:
     zones: list[dict[str, object]] = []
     for index, block in enumerate(_iter_blocks(content, "zone"), start=1):
         name = re.search(rf"\(name\s+{STRING_PATTERN}\)", block)
-        net_name = re.search(rf"\(net_name\s+{STRING_PATTERN}\)", block)
-        net = re.search(r"\(net\s+(\d+)\)", block)
+        # Older boards carry an explicit (net_name "...") beside the numeric (net N).
+        explicit_net_name = re.search(rf"\(net_name\s+{STRING_PATTERN}\)", block)
+        net_name = (
+            explicit_net_name.group(1)
+            if explicit_net_name is not None
+            else _block_net_name(block, net_names)
+        )
         layer = re.search(rf"\(layer\s+{STRING_PATTERN}\)", block)
         layers_match = re.search(r"\(layers\s+([^)]+)\)", block)
         layers = _quoted_values(layers_match.group(1)) if layers_match else []
@@ -1043,13 +1060,7 @@ def _board_file_zones(content: str) -> list[dict[str, object]]:
             {
                 "index": index,
                 "name": name.group(1) if name else "",
-                "net": net_name.group(1)
-                if net_name is not None
-                else (
-                    net_names.get(net.group(1), f"net-{net.group(1)}")
-                    if net is not None
-                    else "(none)"
-                ),
+                "net": net_name,
                 "layers": layers,
             }
         )

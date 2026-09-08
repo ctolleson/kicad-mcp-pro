@@ -7,7 +7,6 @@ FAZ 8.1 — pcb_add_test_point, pcb_list_test_points,
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,6 +20,7 @@ from ..pcb.board_access import (
     board_nets,
     board_vias,
 )
+from ..utils.board_nets import board_nets_from_text
 from ..utils.units import nm_to_mm
 from .export_support import _get_pcb_file
 from .metadata import headless_compatible
@@ -84,14 +84,7 @@ def _collect_board_nets() -> list[dict[str, Any]]:
     # File fallback
     try:
         content = _get_pcb_file().read_text(encoding="utf-8", errors="ignore")
-        fallback_nets: list[dict[str, Any]] = []
-        seen_codes: set[int] = set()
-        for m in re.finditer(r'\(net\s+(\d+)\s+"((?:\\.|[^"\\])*)"', content):
-            code = int(m.group(1))
-            name = m.group(2)
-            if code not in seen_codes:
-                seen_codes.add(code)
-                fallback_nets.append({"code": code, "name": name})
+        fallback_nets: list[dict[str, Any]] = list(board_nets_from_text(content))
         return fallback_nets or live_nets
     except (OSError, ValueError):
         return live_nets
