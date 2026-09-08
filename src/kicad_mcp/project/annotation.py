@@ -135,18 +135,27 @@ def parse_netlist(netlist: SList) -> SchematicModel:
     if nets is not None:
         for net in nets.children("net"):
             name = _atom_value(net.child("name"))
-            if not name or name.startswith(_UNCONNECTED_PREFIX):
+            if not name:
                 continue
             pads: set[tuple[str, str]] = set()
             for node in net.children("node"):
                 reference = _atom_value(node.child("ref"))
                 pad = _atom_value(node.child("pin"))
                 if reference and pad:
-                    key = (reference, pad)
-                    model.pad_nets[key] = name
-                    pads.add(key)
-            if pads:
-                model.net_pads[name] = pads
+                    pads.add((reference, pad))
+            # Two signals decide, and neither is sufficient alone. KiCad names an
+            # unlabelled net ``unconnected-(REF-PadN)`` whether it holds one pin or
+            # several - wiring three pins together without naming them produces
+            # exactly that - so the name alone would discard real nets. But a
+            # *named* single-pin net is deliberate: someone labelled that pin. Only
+            # an auto-named net with a single pin is a pin going nowhere.
+            if len(pads) < 2 and name.startswith(_UNCONNECTED_PREFIX):
+                continue
+            if not pads:
+                continue
+            for key in pads:
+                model.pad_nets[key] = name
+            model.net_pads[name] = pads
     return model
 
 
@@ -284,14 +293,19 @@ def diff(schematic: SchematicModel, board: BoardModel) -> AnnotationDiff:
         if component.value and board_value != component.value:
             result.value_mismatches.append((reference, board_value, component.value))
 
-    for key, schematic_net in sorted(schematic.pad_nets.items()):
+    # Walk the union, not just the schematic side. A pad that carries a net on the
+    # board but none in the schematic is a real difference - an import that dropped
+    # a connection looks exactly like this - and iterating the schematic alone made
+    # it invisible.
+    for key in sorted(set(schematic.pad_nets) | set(board.pad_nets)):
         reference, pad = key
         if reference not in board.footprints:
             continue  # its whole component is missing; reported above
         if key not in board.pad_nets:
             continue  # pad absent from the board footprint
         board_net = board.pad_nets[key]
-        resolved = result.net_name_map.get(schematic_net, schematic_net)
+        schematic_net = schematic.pad_nets.get(key, "")
+        resolved = result.net_name_map.get(schematic_net, schematic_net) if schematic_net else ""
         if board_net != resolved:
             result.pad_net_changes.append(
                 PadNetChange(

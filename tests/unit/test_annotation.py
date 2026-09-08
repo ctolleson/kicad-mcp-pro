@@ -88,13 +88,16 @@ def test_a_flattened_board_name_still_matches() -> None:
     """An imported board may carry only the leaf label for /Sheet/NET."""
     netlist = parse_netlist(
         parse(
-            '(export (nets (net (code "1") (name "/Connectors/D1_N") (node (ref "R1") (pin "1")))))'
+            '(export (nets (net (code "1") (name "/Connectors/D1_N")'
+            ' (node (ref "R1") (pin "1")) (node (ref "R2") (pin "1")))))'
         )
     )
     board = parse_board(
         parse(
             '(kicad_pcb (footprint "L:F" (property "Reference" "R1" (at 0 0))'
-            ' (pad "1" smd rect (at 0 0) (net "D1_N"))))'
+            ' (pad "1" smd rect (at 0 0) (net "D1_N")))'
+            ' (footprint "L:F" (property "Reference" "R2" (at 0 0))'
+            ' (pad "1" smd rect (at 5 0) (net "D1_N"))))'
         )
     )
     assert map_net_names(netlist, board)["/Connectors/D1_N"] == "D1_N"
@@ -102,7 +105,10 @@ def test_a_flattened_board_name_still_matches() -> None:
 
 def test_a_brand_new_net_falls_back_to_the_root_sheet_name() -> None:
     netlist = parse_netlist(
-        parse('(export (nets (net (code "1") (name "/NEW") (node (ref "R9") (pin "1")))))')
+        parse(
+            '(export (nets (net (code "1") (name "/NEW")'
+            ' (node (ref "R9") (pin "1")) (node (ref "R8") (pin "2")))))'
+        )
     )
     board = parse_board(parse("(kicad_pcb)"))
     assert map_net_names(netlist, board)["/NEW"] == "NEW"
@@ -149,8 +155,10 @@ def test_swapped_pins_surface_as_connectivity_differences() -> None:
     netlist = parse_netlist(
         parse(
             '(export (components (comp (ref "J9") (value "P") (footprint "L:P")))'
-            ' (nets (net (code "1") (name "/VCC") (node (ref "J9") (pin "1")))'
-            '       (net (code "2") (name "/GND") (node (ref "J9") (pin "2")))))'
+            ' (nets (net (code "1") (name "/VCC") (node (ref "J9") (pin "1"))'
+            '              (node (ref "R1") (pin "1")))'
+            '       (net (code "2") (name "/GND") (node (ref "J9") (pin "2"))'
+            '              (node (ref "R1") (pin "2")))))'
         )
     )
     board = parse_board(
@@ -158,7 +166,11 @@ def test_swapped_pins_surface_as_connectivity_differences() -> None:
             '(kicad_pcb (footprint "L:P" (property "Reference" "J9" (at 0 0))'
             ' (property "Value" "P" (at 0 0))'
             ' (pad "1" thru_hole circle (at 0 0) (net "GND"))'
-            ' (pad "2" thru_hole circle (at 1 0) (net "VCC"))))'
+            ' (pad "2" thru_hole circle (at 1 0) (net "VCC")))'
+            ' (footprint "L:R" (property "Reference" "R1" (at 0 0))'
+            ' (property "Value" "R" (at 0 0))'
+            ' (pad "1" smd rect (at 9 0) (net "VCC"))'
+            ' (pad "2" smd rect (at 9 1) (net "GND"))))'
         )
     )
     changes = {
@@ -226,3 +238,69 @@ def test_applied_board_still_parses(models) -> None:
     from kicad_mcp.utils.sexpr_tree import dump_file
 
     assert parse(dump_file(tree)).tag == "kicad_pcb"
+
+
+def test_a_board_pad_with_no_schematic_net_is_reported() -> None:
+    """An import that drops a connection looks exactly like this. Iterating only the
+    schematic's pads made it invisible."""
+    netlist = parse_netlist(
+        parse('(export (components (comp (ref "U7") (value "MUX") (footprint "L:M"))))')
+    )
+    board = parse_board(
+        parse(
+            '(kicad_pcb (footprint "L:M" (property "Reference" "U7" (at 0 0))'
+            ' (property "Value" "MUX" (at 0 0))'
+            ' (pad "3" smd rect (at 0 0) (net "SWDIO"))))'
+        )
+    )
+    changes = diff(netlist, board).pad_net_changes
+    assert len(changes) == 1
+    assert changes[0].reference == "U7"
+    assert changes[0].pad == "3"
+    assert changes[0].board_net == "SWDIO"
+    assert changes[0].schematic_net == ""
+
+
+def test_a_pad_unconnected_on_both_sides_is_not_a_difference() -> None:
+    netlist = parse_netlist(
+        parse('(export (components (comp (ref "U7") (value "MUX") (footprint "L:M"))))')
+    )
+    board = parse_board(
+        parse(
+            '(kicad_pcb (footprint "L:M" (property "Reference" "U7" (at 0 0))'
+            ' (property "Value" "MUX" (at 0 0)) (pad "7" smd rect (at 0 0))))'
+        )
+    )
+    assert diff(netlist, board).pad_net_changes == []
+
+
+def test_an_unlabelled_multi_pin_net_is_a_real_net() -> None:
+    """Wiring pins together without naming them yields an unconnected-(...) name in
+    KiCad, but three joined pins are a connection, not a dangling pin."""
+    netlist = parse_netlist(
+        parse(
+            '(export (nets (net (code "1") (name "unconnected-(C60-Pad1)")'
+            ' (node (ref "C60") (pin "1")) (node (ref "R55") (pin "2"))'
+            ' (node (ref "U9") (pin "3")))))'
+        )
+    )
+    assert netlist.pad_nets[("C60", "1")] == "unconnected-(C60-Pad1)"
+    assert len(netlist.net_pads["unconnected-(C60-Pad1)"]) == 3
+
+
+def test_a_single_pin_net_is_still_ignored() -> None:
+    netlist = parse_netlist(
+        parse(
+            '(export (nets (net (code "1") (name "unconnected-(J1-Pad3)")'
+            ' (node (ref "J1") (pin "3")))))'
+        )
+    )
+    assert ("J1", "3") not in netlist.pad_nets
+
+
+def test_a_named_single_pin_net_is_kept() -> None:
+    """Labelling one pin is deliberate; only an auto-named lone pin is dangling."""
+    netlist = parse_netlist(
+        parse('(export (nets (net (code "1") (name "USB_D+") (node (ref "L8") (pin "3")))))')
+    )
+    assert netlist.pad_nets[("L8", "3")] == "USB_D+"

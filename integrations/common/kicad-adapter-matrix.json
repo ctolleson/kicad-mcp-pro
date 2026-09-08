@@ -344,7 +344,7 @@
           "toolCount": 7
         },
         "pcb_read": {
-          "availableCount": 27,
+          "availableCount": 29,
           "blockedCount": 2,
           "canarySurfaces": [
             "read"
@@ -358,14 +358,14 @@
             "local-filesystem"
           ],
           "selectedBackends": {
-            "local-engine": 27,
+            "local-engine": 29,
             "unavailable": 2
           },
-          "toolCount": 29
+          "toolCount": 31
         },
         "pcb_write": {
-          "availableCount": 6,
-          "blockedCount": 47,
+          "availableCount": 14,
+          "blockedCount": 46,
           "canarySurfaces": [
             "write"
           ],
@@ -379,10 +379,10 @@
           ],
           "selectedBackends": {
             "local-engine": 1,
-            "transactional-pcb-file": 5,
-            "unavailable": 47
+            "transactional-pcb-file": 13,
+            "unavailable": 46
           },
-          "toolCount": 53
+          "toolCount": 60
         },
         "power_integrity": {
           "availableCount": 8,
@@ -689,7 +689,7 @@
           "toolCount": 7
         },
         "pcb_read": {
-          "availableCount": 29,
+          "availableCount": 31,
           "blockedCount": 0,
           "canarySurfaces": [
             "read"
@@ -704,12 +704,12 @@
           ],
           "selectedBackends": {
             "kicad-gui-ipc": 2,
-            "local-engine": 27
+            "local-engine": 29
           },
-          "toolCount": 29
+          "toolCount": 31
         },
         "pcb_write": {
-          "availableCount": 53,
+          "availableCount": 60,
           "blockedCount": 0,
           "canarySurfaces": [
             "write"
@@ -723,11 +723,11 @@
             "transactional-pcb-file"
           ],
           "selectedBackends": {
-            "kicad-gui-ipc": 47,
+            "kicad-gui-ipc": 46,
             "local-engine": 1,
-            "transactional-pcb-file": 5
+            "transactional-pcb-file": 13
           },
-          "toolCount": 53
+          "toolCount": 60
         },
         "power_integrity": {
           "availableCount": 8,
@@ -1034,7 +1034,7 @@
           "toolCount": 7
         },
         "pcb_read": {
-          "availableCount": 29,
+          "availableCount": 31,
           "blockedCount": 0,
           "canarySurfaces": [
             "read"
@@ -1049,12 +1049,12 @@
           ],
           "selectedBackends": {
             "kicad-11-headless-ipc": 2,
-            "local-engine": 27
+            "local-engine": 29
           },
-          "toolCount": 29
+          "toolCount": 31
         },
         "pcb_write": {
-          "availableCount": 53,
+          "availableCount": 60,
           "blockedCount": 0,
           "canarySurfaces": [
             "write"
@@ -1068,11 +1068,11 @@
             "transactional-pcb-file"
           ],
           "selectedBackends": {
-            "kicad-11-headless-ipc": 47,
+            "kicad-11-headless-ipc": 46,
             "local-engine": 1,
-            "transactional-pcb-file": 5
+            "transactional-pcb-file": 13
           },
-          "toolCount": 53
+          "toolCount": 60
         },
         "power_integrity": {
           "availableCount": 8,
@@ -1272,7 +1272,7 @@
     "previewBaseline": "11.x",
     "publicSupportClaim": "KiCad 11 remains preview until native canaries pass.",
     "stableBaseline": "10.0.x",
-    "toolCount": 400
+    "toolCount": 409
   },
   "tools": [
     {
@@ -4807,6 +4807,54 @@
       "category": "pcb_write",
       "routes": {
         "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_apply_manufacturer_rules",
+      "writesFiles": true
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_assign_nets_to_class",
+      "writesFiles": true
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
           "available": false,
           "backend": "unavailable",
           "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
@@ -5044,6 +5092,30 @@
       "writesFiles": true
     },
     {
+      "category": "pcb_read",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "pcb_compare_with_schematic",
+      "writesFiles": false
+    },
+    {
       "category": "validation",
       "routes": {
         "degradedNoKiCad": {
@@ -5071,6 +5143,30 @@
       "category": "pcb_write",
       "routes": {
         "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_define_net_class",
+      "writesFiles": true
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
           "available": false,
           "backend": "unavailable",
           "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
@@ -5090,6 +5186,30 @@
       "tier": "write",
       "tool": "pcb_delete_items",
       "writesFiles": false
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_delete_net_class",
+      "writesFiles": true
     },
     {
       "category": "pcb_write",
@@ -5209,6 +5329,30 @@
       "runtime": "none",
       "tier": "read",
       "tool": "pcb_get_board_as_string",
+      "writesFiles": false
+    },
+    {
+      "category": "pcb_read",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "local-engine",
+          "mutationGuard": null
+        }
+      },
+      "runtime": "none",
+      "tier": "read",
+      "tool": "pcb_get_board_setup",
       "writesFiles": false
     },
     {
@@ -6319,22 +6463,22 @@
       "category": "pcb_write",
       "routes": {
         "degradedNoKiCad": {
-          "available": false,
-          "backend": "unavailable",
+          "available": true,
+          "backend": "transactional-pcb-file",
           "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
         },
         "kicad10Gui": {
           "available": true,
-          "backend": "kicad-gui-ipc",
-          "mutationGuard": "ipc-transaction-and-postcondition-check"
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
         },
         "kicad11Headless": {
           "available": true,
-          "backend": "kicad-11-headless-ipc",
-          "mutationGuard": "ipc-transaction-and-postcondition-check"
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
         }
       },
-      "runtime": "kicad_ipc",
+      "runtime": "none",
       "tier": "write",
       "tool": "pcb_set_net_class",
       "writesFiles": true
@@ -6361,6 +6505,30 @@
       "runtime": "kicad_ipc",
       "tier": "write",
       "tool": "pcb_set_origin",
+      "writesFiles": true
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_set_predefined_sizes",
       "writesFiles": true
     },
     {
@@ -6530,6 +6698,30 @@
       "tier": "read",
       "tool": "pcb_transfer_quality_gate",
       "writesFiles": false
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "pcb_update_from_schematic",
+      "writesFiles": true
     },
     {
       "category": "manufacturing",
@@ -9434,6 +9626,30 @@
       "tier": "read",
       "tool": "sch_trace_net",
       "writesFiles": false
+    },
+    {
+      "category": "pcb_write",
+      "routes": {
+        "degradedNoKiCad": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad10Gui": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        },
+        "kicad11Headless": {
+          "available": true,
+          "backend": "transactional-pcb-file",
+          "mutationGuard": "ipc-transaction-or-atomic-parse-validation"
+        }
+      },
+      "runtime": "none",
+      "tier": "write",
+      "tool": "sch_update_from_pcb",
+      "writesFiles": true
     },
     {
       "category": "schematic",
