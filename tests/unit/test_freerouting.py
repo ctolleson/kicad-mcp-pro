@@ -10,15 +10,36 @@ from kicad_mcp.utils.freerouting import FreeRoutingRunner
 
 
 def test_export_dsn_copies_existing_sibling_dsn(sample_project: Path) -> None:
+    """A sibling DSN that still describes the board is staged to the target.
+
+    The board and the DSN both need real placements: export_dsn only reuses a
+    sidecar it can verify against the board, and the shared sample project ships
+    an empty ``(kicad_pcb)``, which is unverifiable rather than merely unchanged.
+    """
+    places = {"J1": (10.0, 20.0), "J2": (30.0, 20.0), "J3": (30.0, 40.0), "J4": (10.0, 40.0)}
     pcb_path = sample_project / "demo.kicad_pcb"
+    pcb_path.write_text(
+        "(kicad_pcb\n"
+        + "".join(
+            f'\t(footprint "L:F"\n\t\t(at {x} {y} 0)\n'
+            f'\t\t(property "Reference" "{ref}"\n\t\t\t(at 0 0 0)\n\t\t)\n\t)\n'
+            for ref, (x, y) in places.items()
+        )
+        + ")\n",
+        encoding="utf-8",
+    )
+    # Specctra writes micrometres relative to the aux axis, with y negated.
+    body = "".join(
+        f"      (place {ref} {x * 1000} {-y * 1000} front 0)\n" for ref, (x, y) in places.items()
+    )
     source_dsn = sample_project / "demo.dsn"
-    source_dsn.write_text("dsn", encoding="utf-8")
+    source_dsn.write_text(f"(pcb demo\n  (placement\n{body}  )\n)\n", encoding="utf-8")
 
     runner = FreeRoutingRunner()
     staged = runner.export_dsn(pcb_path, Path("output/routing/board.dsn"))
 
     assert staged.exists()
-    assert staged.read_text(encoding="utf-8") == "dsn"
+    assert staged.read_text(encoding="utf-8") == source_dsn.read_text(encoding="utf-8")
 
 
 def test_export_dsn_requires_manual_export_when_cli_lacks_specctra(sample_project: Path) -> None:
