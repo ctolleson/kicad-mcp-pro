@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import shutil
@@ -149,6 +150,76 @@ class FreeRoutingRunner:
                 return True
         return False
 
+    @staticmethod
+    def _dsn_placements(dsn_path: Path) -> dict[str, tuple[float, float]]:
+        """Component reference -> (x, y) as written in the DSN, in DSN units."""
+        try:
+            text = dsn_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return {}
+        return {
+            match.group(1): (float(match.group(2)), float(match.group(3)))
+            for match in re.finditer(r"\(place\s+(\S+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s", text)
+        }
+
+    @staticmethod
+    def _board_placements(pcb_path: Path) -> dict[str, tuple[float, float]]:
+        """Component reference -> (x, y) in board millimetres."""
+        try:
+            text = pcb_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return {}
+        placements: dict[str, tuple[float, float]] = {}
+        for block in re.finditer(r"\(footprint\s", text):
+            window = text[block.start() : block.start() + 4000]
+            at = re.search(r"\(at\s+(-?[\d.]+)\s+(-?[\d.]+)", window)
+            ref = re.search(r'\(property\s+"Reference"\s+"([^"]+)"', window)
+            if at and ref:
+                placements[ref.group(1)] = (float(at.group(1)), float(at.group(2)))
+        return placements
+
+    @classmethod
+    def _is_current(cls, dsn_path: Path, pcb_path: Path) -> bool:
+        """True when ``dsn_path`` still describes the board in ``pcb_path``.
+
+        A DSN is a snapshot of board geometry. Reusing one written before the board
+        changed silently routes the previous layout: the session comes back with
+        traces to pads that have since moved or been deleted, and applying it
+        corrupts the board while every step reports success.
+
+        File mtime cannot answer this - copying, moving, or checking out a stale DSN
+        refreshes it - so the comparison is on content. Two things must hold: the
+        component sets match, and the geometry agrees. Geometry is compared through
+        ratios of pairwise distances, which is invariant to the origin shift Specctra
+        applies (it writes relative to the aux axis, with y negated) and to the unit
+        scale, so neither has to be inferred. A board translated wholesale still
+        matches; one where a part moved relative to the others does not.
+        """
+        dsn = cls._dsn_placements(dsn_path)
+        board = cls._board_placements(pcb_path)
+        if not dsn or not board or set(dsn) != set(board):
+            return False
+
+        refs = sorted(dsn)
+        if len(refs) < 3:
+            # Too few points to compare shape; fall back to the weaker mtime signal.
+            try:
+                return dsn_path.stat().st_mtime >= pcb_path.stat().st_mtime
+            except OSError:
+                return False
+
+        ratios: list[float] = []
+        for i, a in enumerate(refs):
+            for b in refs[i + 1 :]:
+                d_dsn = math.dist(dsn[a], dsn[b])
+                d_board = math.dist(board[a], board[b])
+                if d_board < 1e-9 or d_dsn < 1e-9:
+                    continue
+                ratios.append(d_dsn / d_board)
+        if not ratios:
+            return False
+        return max(ratios) - min(ratios) <= 1e-3 * max(ratios)
+
     def export_dsn(self, pcb_path: Path, dsn_path: Path) -> Path:
         """Export a Specctra DSN for FreeRouting, or raise a clear manual-step error.
 
@@ -161,7 +232,7 @@ class FreeRoutingRunner:
         target = cfg.resolve_within_project(dsn_path)
         target.parent.mkdir(parents=True, exist_ok=True)
 
-        if target.exists():
+        if target.exists() and self._is_current(target, pcb_path):
             return target
 
         caps = get_cli_capabilities(cfg.kicad_cli)
@@ -173,12 +244,26 @@ class FreeRoutingRunner:
             cfg.project_root / "routing" / f"{pcb_path.stem}.dsn",
             cfg.project_root / "output" / "routing" / f"{pcb_path.stem}.dsn",
         ]
+        stale: list[Path] = []
         for candidate in candidates:
             if not candidate.exists():
+                continue
+            if not self._is_current(candidate, pcb_path):
+                stale.append(candidate)
                 continue
             if candidate.resolve() != target.resolve():
                 shutil.copy2(candidate, target)
             return target
+
+        if stale:
+            listed = ", ".join(str(path) for path in stale)
+            raise ManualStepRequiredError(
+                f"The Specctra DSN files found ({listed}) are older than "
+                f"{pcb_path.name}, so they describe a previous version of the board - "
+                "routing one would produce a session for footprints that have since "
+                "moved or been deleted. Re-export from KiCad's PCB Editor with "
+                f"File > Export > Specctra DSN, saving to {target}."
+            )
 
         raise ManualStepRequiredError(
             "Headless Specctra DSN export is not available from this KiCad CLI "
