@@ -12,7 +12,8 @@ job, through the existing transactional board write.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import uuid
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
 from ..utils.sexpr_tree import Atom, Node, SList
@@ -438,9 +439,179 @@ def set_zone_properties(
     return report
 
 
+def board_copper_layers(root: SList) -> list[str]:
+    """Copper layer names the board declares, in stack order."""
+    layers = root.child("layers")
+    if layers is None:
+        return []
+    names: list[str] = []
+    for entry in layers:
+        if isinstance(entry, SList) and len(entry) >= 2 and isinstance(entry[1], Atom):
+            name = entry[1].value
+            if name.endswith(".Cu"):
+                names.append(name)
+    return names
+
+
+def board_outline_rectangle(root: SList, *, inset: float = 0.5) -> list[tuple[float, float]]:
+    """A rectangle just inside the board edge, for a full-board pour.
+
+    Derived from the bounding box of everything on ``Edge.Cuts``. A rectangle is
+    deliberate: a pour only has to be *contained* by the outline, and KiCad clips the
+    fill to the real edge anyway, so following a complex outline vertex by vertex buys
+    nothing and risks tracing an arc wrongly.
+    """
+    xs: list[float] = []
+    ys: list[float] = []
+    for node in root.walk():
+        if not isinstance(node, SList):
+            continue
+        layer = node.child("layer")
+        if layer is None or len(layer) < 2 or str(layer[1]) != "Edge.Cuts":
+            continue
+        for tag in ("start", "end", "center", "mid"):
+            point = node.child(tag)
+            if point is not None and len(point) >= 3:
+                try:
+                    xs.append(float(str(point[1])))
+                    ys.append(float(str(point[2])))
+                except ValueError:
+                    continue
+        for pts in node.children("pts"):
+            for xy in pts.children("xy"):
+                if len(xy) >= 3:
+                    try:
+                        xs.append(float(str(xy[1])))
+                        ys.append(float(str(xy[2])))
+                    except ValueError:
+                        continue
+    if not xs or not ys:
+        raise ValueError("This board has no Edge.Cuts geometry, so its outline is unknown.")
+    x0, x1 = min(xs) + inset, max(xs) - inset
+    y0, y1 = min(ys) + inset, max(ys) - inset
+    if x1 - x0 <= 0 or y1 - y0 <= 0:
+        raise ValueError(f"An inset of {inset} mm leaves no area inside this board outline.")
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+_PAD_CONNECTION = {"thermal", "solid", "none", "thru_hole_only"}
+
+
+def create_zone(
+    root: SList,
+    *,
+    net: str,
+    layers: Sequence[str],
+    polygon: Sequence[tuple[float, float]],
+    priority: int = 0,
+    min_thickness: float = 0.25,
+    clearance: float = 0.5,
+    thermal_gap: float = 0.5,
+    thermal_bridge_width: float = 0.5,
+    pad_connection: str = "thermal",
+    name: str = "",
+    uuid_str: str | None = None,
+) -> EditReport:
+    """Add an unfilled copper zone, written straight into the board file.
+
+    The zone is created *unfilled*: computing the fill needs KiCad's geometry engine.
+    Fill it headlessly with::
+
+        kicad-cli pcb drc --refill-zones --save-board board.kicad_pcb
+
+    Both flags are required. Plain ``pcb drc`` fills only in memory to run the check
+    and leaves the file's copper untouched, so a zone can look filled to DRC and still
+    carry no copper on disk.
+
+    The net must already exist on the board. A zone naming a net that is not there
+    would look correct in the file and pour nothing, so a typo is rejected rather than
+    written.
+    """
+    if pad_connection not in _PAD_CONNECTION:
+        raise ValueError(
+            f"pad_connection must be one of {sorted(_PAD_CONNECTION)}, got '{pad_connection}'."
+        )
+    if min_thickness <= 0:
+        raise ValueError("Zone minimum thickness must be greater than zero.")
+    if priority < 0:
+        raise ValueError("Zone priority must be zero or greater.")
+
+    net_name = next(iter(_resolve_net_names(root, [net])))
+
+    available = board_copper_layers(root)
+    requested = [str(layer) for layer in layers]
+    if not requested:
+        raise ValueError("A copper zone needs at least one layer.")
+    unknown = [layer for layer in requested if layer not in available]
+    if unknown:
+        listed = ", ".join(available) or "(none declared)"
+        raise ValueError(f"Unknown copper layer(s) {unknown}. This board has: {listed}")
+
+    points: list[tuple[float, float]] = []
+    for x, y in polygon:
+        point = (round(float(x), 6), round(float(y), 6))
+        if point not in points:
+            points.append(point)
+    if len(points) < 3:
+        raise ValueError("A zone outline needs at least three distinct corners.")
+
+    zone = SList([Atom("zone")])
+    declarations = net_declarations(root)
+    if declarations:
+        codes = {name_: code for code, name_ in declarations.items()}
+        zone.append(SList([Atom("net"), Atom(str(codes[net_name]))]))
+    else:
+        # KiCad 10 records the name on the item; there is no board-level net table.
+        zone.append(SList([Atom("net"), Atom(net_name, quoted=True)]))
+    if len(requested) == 1:
+        zone.append(SList([Atom("layer"), Atom(requested[0], quoted=True)]))
+    else:
+        zone.append(SList([Atom("layers"), *(Atom(x, quoted=True) for x in requested)]))
+    zone.append(SList([Atom("uuid"), Atom(uuid_str or str(uuid.uuid4()), quoted=True)]))
+    if name:
+        zone.append(SList([Atom("name"), Atom(name, quoted=True)]))
+    zone.append(SList([Atom("hatch"), Atom("edge"), Atom("0.5")]))
+    if priority:
+        zone.append(SList([Atom("priority"), Atom(str(int(priority)))]))
+
+    connect = SList([Atom("connect_pads")])
+    if pad_connection == "solid":
+        connect.append(Atom("yes"))
+    elif pad_connection == "none":
+        connect.append(Atom("no"))
+    elif pad_connection == "thru_hole_only":
+        connect.append(Atom("thru_hole_only"))
+    connect.append(SList([Atom("clearance"), Atom(f"{clearance:g}")]))
+    zone.append(connect)
+
+    zone.append(SList([Atom("min_thickness"), Atom(f"{min_thickness:g}")]))
+    zone.append(
+        SList(
+            [
+                Atom("fill"),
+                SList([Atom("thermal_gap"), Atom(f"{thermal_gap:g}")]),
+                SList([Atom("thermal_bridge_width"), Atom(f"{thermal_bridge_width:g}")]),
+            ]
+        )
+    )
+    pts = SList([Atom("pts")])
+    for x, y in points:
+        pts.append(SList([Atom("xy"), Atom(f"{x:g}"), Atom(f"{y:g}")]))
+    zone.append(SList([Atom("polygon"), pts]))
+
+    root.append(zone)
+    report = EditReport()
+    report.add(f"zone on {'+'.join(requested)} for net '{net_name}' ({len(points)} corners)")
+    report.add("left unfilled - fill with 'kicad-cli pcb drc --refill-zones --save-board'")
+    return report
+
+
 __all__ = [
     "ITEM_GROUPS",
     "EditReport",
+    "board_copper_layers",
+    "board_outline_rectangle",
+    "create_zone",
     "cleanup_tracks_and_vias",
     "global_delete",
     "list_zones",

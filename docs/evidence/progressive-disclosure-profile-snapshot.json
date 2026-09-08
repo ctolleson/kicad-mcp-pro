@@ -18,7 +18,7 @@
       "readOnlyCases": 25,
       "readOnlyCasesCovered": 5,
       "readOnlyCoveragePct": 20.0,
-      "toolReductionVsExpertPct": 94.1,
+      "toolReductionVsExpertPct": 94.2,
       "tools": [
         "kicad_get_project_info",
         "kicad_get_tools_in_category",
@@ -64,7 +64,7 @@
       "readOnlyCases": 25,
       "readOnlyCasesCovered": 12,
       "readOnlyCoveragePct": 48.0,
-      "toolReductionVsExpertPct": 94.1,
+      "toolReductionVsExpertPct": 94.2,
       "tools": [
         "dfm_run_manufacturer_check",
         "kicad_get_project_info",
@@ -93,11 +93,11 @@
       ]
     },
     "expert": {
-      "callableTools": 409,
-      "catalogCharacters": 242891,
+      "callableTools": 411,
+      "catalogCharacters": 245038,
       "catalogReductionVsExpertPct": 0.0,
-      "declaredTools": 409,
-      "estimatedCatalogTokens": 60723,
+      "declaredTools": 411,
+      "estimatedCatalogTokens": 61260,
       "forbiddenToolExposures": 8,
       "goldenCases": 65,
       "goldenCasesCovered": 55,
@@ -272,6 +272,7 @@
         "pcb_check_test_coverage",
         "pcb_cleanup_tracks_and_vias",
         "pcb_compare_with_schematic",
+        "pcb_create_zone",
         "pcb_critique_placement",
         "pcb_define_net_class",
         "pcb_delete_items",
@@ -280,6 +281,7 @@
         "pcb_drop_commit",
         "pcb_export_3d_pdf",
         "pcb_export_stats",
+        "pcb_fill_zones",
         "pcb_get_board_as_string",
         "pcb_get_board_setup",
         "pcb_get_board_summary",
@@ -526,7 +528,7 @@
     "release": {
       "callableTools": 24,
       "catalogCharacters": 7184,
-      "catalogReductionVsExpertPct": 97.0,
+      "catalogReductionVsExpertPct": 97.1,
       "declaredTools": 24,
       "estimatedCatalogTokens": 1796,
       "forbiddenToolExposures": 0,
@@ -541,7 +543,7 @@
       "readOnlyCases": 25,
       "readOnlyCasesCovered": 8,
       "readOnlyCoveragePct": 32.0,
-      "toolReductionVsExpertPct": 94.1,
+      "toolReductionVsExpertPct": 94.2,
       "tools": [
         "check_design_for_manufacture",
         "dfm_run_manufacturer_check",
@@ -587,7 +589,7 @@
       "readOnlyCases": 25,
       "readOnlyCasesCovered": 12,
       "readOnlyCoveragePct": 48.0,
-      "toolReductionVsExpertPct": 94.1,
+      "toolReductionVsExpertPct": 94.2,
       "tools": [
         "dfm_run_manufacturer_check",
         "kicad_get_project_info",

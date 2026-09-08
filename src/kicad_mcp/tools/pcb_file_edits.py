@@ -22,13 +22,16 @@ from mcp.server.fastmcp import FastMCP
 from ..pcb.file_edits import (
     EditReport,
     board_net_names,
+    board_outline_rectangle,
     cleanup_tracks_and_vias,
+    create_zone,
     global_delete,
     list_zones,
     set_zone_properties,
     swap_layers,
 )
 from ..utils.sexpr_tree import SList, dump_file, parse
+from .export_support import _run_cli
 from .metadata import headless_compatible
 
 
@@ -179,6 +182,101 @@ def register(mcp: FastMCP, dependencies: PcbFileEditDependencies) -> None:
             )
         lines.extend(["", "Edit one with pcb_set_zone_properties(index=...)."])
         return "\n".join(lines)
+
+    @mcp.tool()
+    @headless_compatible
+    def pcb_create_zone(
+        net: str,
+        layers: list[str],
+        corners: list[list[float]] | None = None,
+        follow_board_outline: bool = False,
+        outline_inset_mm: float = 0.5,
+        priority: int = 0,
+        min_thickness_mm: float = 0.25,
+        clearance_mm: float = 0.5,
+        thermal_gap_mm: float = 0.5,
+        thermal_bridge_width_mm: float = 0.5,
+        pad_connection: str = "thermal",
+        name: str = "",
+        dry_run: bool = False,
+    ) -> str:
+        """Add a copper zone (pour) to the board file, headlessly.
+
+        Unlike pcb_add_zone, which needs a running KiCad over the IPC API, this writes
+        the zone straight into the board file. Give an explicit polygon in `corners`
+        ([[x, y], ...] in mm), or set follow_board_outline=True for a full-board pour
+        inset from Edge.Cuts by `outline_inset_mm`.
+
+        `pad_connection` is one of thermal, solid, none, thru_hole_only.
+
+        The zone is written UNFILLED. Fill it with pcb_fill_zones(), which is a
+        separate step because computing the fill needs KiCad's geometry engine.
+        """
+        if follow_board_outline and corners:
+            return "Give either `corners` or follow_board_outline=True, not both."
+        if not follow_board_outline and not corners:
+            return "Provide `corners` as [[x, y], ...] in mm, or set follow_board_outline=True."
+
+        def mutate(tree: SList) -> EditReport:
+            polygon = (
+                board_outline_rectangle(tree, inset=outline_inset_mm)
+                if follow_board_outline
+                else [(float(point[0]), float(point[1])) for point in (corners or [])]
+            )
+            return create_zone(
+                tree,
+                net=net,
+                layers=layers,
+                polygon=polygon,
+                priority=priority,
+                min_thickness=min_thickness_mm,
+                clearance=clearance_mm,
+                thermal_gap=thermal_gap_mm,
+                thermal_bridge_width=thermal_bridge_width_mm,
+                pad_connection=pad_connection,
+                name=name,
+            )
+
+        try:
+            report, board = _apply(mutate, dry_run)
+        except ValueError as exc:
+            return f"Zone not created: {exc}"
+        return _render(report, "Create copper zone", board, dry_run=dry_run)
+
+    @mcp.tool()
+    @headless_compatible
+    def pcb_fill_zones() -> str:
+        """Fill every zone on the board and save it (Edit > Fill All Zones).
+
+        Runs `kicad-cli pcb drc --refill-zones --save-board`. Both flags matter: plain
+        `pcb drc` fills only in memory to run the check, so the board on disk keeps
+        whatever fill geometry it already had - a zone can satisfy DRC and still carry
+        no copper in the file.
+        """
+        configured = board_path()
+        if configured is None:
+            return "No board file is configured. Call kicad_set_project() first."
+        before = read().count("(filled_polygon")
+        code, _stdout, stderr = _run_cli(
+            "pcb",
+            "drc",
+            "--refill-zones",
+            "--save-board",
+            "--format",
+            "json",
+            "-o",
+            "/dev/null",
+            str(configured),
+        )
+        if code != 0 and "Saved board" not in (stderr or ""):
+            return f"Zone fill failed (exit {code}): {stderr.strip() or 'no output'}"
+        after = read().count("(filled_polygon")
+        zones = len(list_zones(parse(read())))
+        return (
+            f"# Fill zones\n\nBoard updated: `{configured}`\n\n"
+            f"- zones on the board: {zones}\n"
+            f"- filled polygons: {before} -> {after}\n"
+        )
 
     @mcp.tool()
     @headless_compatible
