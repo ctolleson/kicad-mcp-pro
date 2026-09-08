@@ -3179,6 +3179,38 @@ def _available_units_from_blocks(blocks: list[str]) -> set[int]:
     return units
 
 
+def _mirrored(px: float, py: float, mirror: str) -> tuple[float, float]:
+    """Apply a placement mirror to a library pin coordinate.
+
+    Library symbols are y-up and the sheet is y-down, so the base transform negates
+    y. ``(mirror x)`` reflects about the X axis, which cancels that negation; the
+    net effect is that symbol y maps to +y. ``(mirror y)`` reflects about the Y
+    axis, negating x. Verified against a placed symbol by exporting the netlist and
+    checking which coordinate the pin's net actually appeared on.
+    """
+    x, y = px, -py
+    if mirror == "x":
+        y = -y
+    elif mirror == "y":
+        x = -x
+    return x, y
+
+
+def _embedded_symbol_blocks(schematic_file: Path, library: str, symbol_name: str) -> list[str]:
+    """Symbol definitions carried inside a schematic's own ``lib_symbols``.
+
+    A sheet embeds every symbol it places, so a board can be inspected without the
+    original library installed - which is the common case for imported designs whose
+    libraries never shipped alongside the project.
+    """
+    try:
+        content = schematic_file.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return []
+    blocks = _collect_symbol_blocks(content, f"{library}:{symbol_name}")
+    return blocks or _collect_symbol_blocks(content, symbol_name)
+
+
 def get_pin_positions(
     library: str,
     symbol_name: str,
@@ -3186,14 +3218,25 @@ def get_pin_positions(
     sym_y: float,
     rotation: int = 0,
     unit: int = 1,
+    *,
+    mirror: str = "",
+    schematic_file: Path | None = None,
 ) -> dict[str, tuple[float, float]]:
-    """Calculate absolute pin tip positions for a symbol placement."""
-    sym_file = _symbol_library_file(library)
-    if sym_file is None:
-        return {}
+    """Calculate absolute pin tip positions for a symbol placement.
 
-    content = sym_file.read_text(encoding="utf-8", errors="ignore")
-    blocks = _collect_symbol_blocks(content, symbol_name)
+    ``mirror`` is "", "x" or "y", matching the placement's ``(mirror ...)`` node.
+    ``schematic_file`` lets the symbol be read from that sheet's embedded
+    ``lib_symbols`` when the library itself is not installed.
+    """
+    if mirror not in {"", "x", "y"}:
+        raise ValueError(f"mirror must be '', 'x' or 'y', got '{mirror}'.")
+    sym_file = _symbol_library_file(library)
+    blocks: list[str] = []
+    if sym_file is not None:
+        content = sym_file.read_text(encoding="utf-8", errors="ignore")
+        blocks = _collect_symbol_blocks(content, symbol_name)
+    if not blocks and schematic_file is not None:
+        blocks = _embedded_symbol_blocks(schematic_file, library, symbol_name)
     if not blocks:
         return {}
     available_units = _available_units_from_blocks(blocks)
@@ -3204,21 +3247,25 @@ def get_pin_positions(
     for block in blocks:
         direct_pins = _extract_pin_definitions(_strip_child_symbol_blocks(block))
         for pin_number, (px, py) in direct_pins.items():
-            rx, ry = rotate_point(px, -py, rotation)
+            rx, ry = rotate_point(*_mirrored(px, py, mirror), rotation)
             pins[pin_number] = (round(sym_x + rx, 4), round(sym_y + ry, 4))
 
         block_name = _symbol_block_name(block)
         if block_name is None:
             continue
         # Match the requested unit and unit 0 (pins common to all units, where
-        # single-unit easyeda2kicad imports place every pin).
-        unit_prefixes = (f"{block_name}_{unit}_", f"{block_name}_0_")
+        # single-unit easyeda2kicad imports place every pin). A schematic's embedded
+        # lib_symbols names the outer block "Lib:Symbol" while its unit children keep
+        # the bare "Symbol_1_0", so the library prefix has to come off first; in an
+        # installed .kicad_sym there is no prefix and this is a no-op.
+        bare_name = block_name.rsplit(":", 1)[-1]
+        unit_prefixes = (f"{bare_name}_{unit}_", f"{bare_name}_0_")
         for child_name, child_block in _extract_child_symbol_blocks(block):
             if not child_name.startswith(unit_prefixes):
                 continue
             for pin_number, (px, py) in _extract_pin_definitions(child_block).items():
                 # KiCad's pin (at x y angle) coordinate is the electrical connection point.
-                rx, ry = rotate_point(px, -py, rotation)
+                rx, ry = rotate_point(*_mirrored(px, py, mirror), rotation)
                 pins[pin_number] = (round(sym_x + rx, 4), round(sym_y + ry, 4))
     return pins
 
