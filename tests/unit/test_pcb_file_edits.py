@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp import FastMCP
 
+from kicad_mcp.capabilities import AccessTier
 from kicad_mcp.pcb.file_edits import (
     board_copper_layers,
     board_net_names,
@@ -731,3 +732,34 @@ def test_a_placed_footprint_has_no_nets_yet() -> None:
 
     block = root.children("footprint")[0]
     assert all(pad.child("net") is None for pad in block.children("pad"))
+
+
+def test_every_file_channel_write_is_classified_headless() -> None:
+    """A file-backed write missing from _FILE_BACKED_PCB_WRITES vanishes silently.
+
+    Such a tool inherits pcb_write's KICAD_IPC requirement, so it registers, passes
+    every test, and is then hidden from discovery whenever KiCad is not running -
+    which is the only situation it exists for. Nothing else catches that, because the
+    tool is perfectly functional when called directly.
+    """
+    from kicad_mcp.capabilities import (
+        _FILE_BACKED_PCB_WRITES,
+        RuntimeRequirement,
+        _runtime_for_tool,
+    )
+
+    file_channel_writes = {
+        "pcb_swap_layers",
+        "pcb_global_delete",
+        "pcb_cleanup_tracks_and_vias",
+        "pcb_set_zone_properties",
+        "pcb_create_zone",
+        "pcb_fill_zones",
+        "pcb_place_footprint",
+    }
+
+    missing = sorted(file_channel_writes - _FILE_BACKED_PCB_WRITES)
+    assert missing == [], f"file-channel tools not declared headless: {missing}"
+
+    for name in sorted(file_channel_writes):
+        assert _runtime_for_tool(name, "pcb_write", AccessTier.WRITE) is RuntimeRequirement.NONE
