@@ -19,6 +19,7 @@ from typing import Protocol, cast
 
 from mcp.server.fastmcp import FastMCP
 
+from ..library_resolution import footprint_file
 from ..pcb.file_edits import (
     EditReport,
     board_net_names,
@@ -27,6 +28,7 @@ from ..pcb.file_edits import (
     create_zone,
     global_delete,
     list_zones,
+    place_footprint,
     set_zone_properties,
     swap_layers,
 )
@@ -242,6 +244,58 @@ def register(mcp: FastMCP, dependencies: PcbFileEditDependencies) -> None:
         except ValueError as exc:
             return f"Zone not created: {exc}"
         return _render(report, "Create copper zone", board, dry_run=dry_run)
+
+    @mcp.tool()
+    @headless_compatible
+    def pcb_place_footprint(
+        library: str,
+        footprint: str,
+        reference: str,
+        x_mm: float,
+        y_mm: float,
+        rotation_deg: float = 0.0,
+        side: str = "front",
+        value: str = "",
+        dry_run: bool = False,
+    ) -> str:
+        """Place a footprint from a library onto the board, headlessly.
+
+        pcb_place_component only moves a footprint the board already has, and needs a
+        running KiCad. This adds a new one from `library` (an fp-lib-table nickname or
+        a configured .pretty directory).
+
+        `side` is front or back; placing on the back mirrors the side-specific layers
+        while leaving through-hole pads on *.Cu, which is side-agnostic.
+
+        The pads carry no nets: the part is mechanically present and electrically
+        isolated until the schematic is linked. Run pcb_compare_with_schematic() to see
+        that difference rather than being surprised by it later.
+        """
+        try:
+            source = footprint_file(library, footprint)
+            text = source.read_text(encoding="utf-8", errors="ignore")
+        except (FileNotFoundError, OSError) as exc:
+            return f"Footprint not placed: {exc}"
+
+        def mutate(tree: SList) -> EditReport:
+            return place_footprint(
+                tree,
+                footprint_text=text,
+                library=library,
+                footprint=footprint,
+                reference=reference,
+                x_mm=x_mm,
+                y_mm=y_mm,
+                rotation=rotation_deg,
+                side=side,
+                value=value or None,
+            )
+
+        try:
+            report, board = _apply(mutate, dry_run)
+        except ValueError as exc:
+            return f"Footprint not placed: {exc}"
+        return _render(report, "Place footprint", board, dry_run=dry_run)
 
     @mcp.tool()
     @headless_compatible

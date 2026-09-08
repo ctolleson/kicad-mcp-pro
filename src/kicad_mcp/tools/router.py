@@ -242,6 +242,7 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
             "pcb_set_zone_properties",
             "pcb_create_zone",
             "pcb_fill_zones",
+            "pcb_place_footprint",
             "pcb_add_blind_via",
             "pcb_add_microvia",
             "pcb_auto_place_by_schematic",

@@ -17,11 +17,13 @@ from kicad_mcp.pcb.file_edits import (
     board_copper_layers,
     board_net_names,
     board_outline_rectangle,
+    board_references,
     cleanup_tracks_and_vias,
     create_zone,
     global_delete,
     list_zones,
     net_declarations,
+    place_footprint,
     set_zone_properties,
     swap_layers,
 )
@@ -554,13 +556,14 @@ def _tool(server: FastMCP, name: str) -> object:
     return {tool.name: tool for tool in server._tool_manager.list_tools()}[name]
 
 
-def test_zone_tools_are_registered_and_declared(tmp_path: Path) -> None:
+def test_board_file_edit_tools_are_registered_and_declared(tmp_path: Path) -> None:
     """A tool absent from TOOL_CATEGORIES registers but is invisible to every profile."""
+    expected = {"pcb_create_zone", "pcb_fill_zones", "pcb_place_footprint"}
     names = {tool.name for tool in _zone_server(tmp_path)._tool_manager.list_tools()}
-    assert {"pcb_create_zone", "pcb_fill_zones"} <= names
+    assert expected <= names
 
     declared = {name for category in TOOL_CATEGORIES.values() for name in category["tools"]}
-    assert {"pcb_create_zone", "pcb_fill_zones"} <= declared
+    assert expected <= declared
 
 
 def test_pcb_create_zone_reports_a_dry_run_without_writing(tmp_path: Path) -> None:
@@ -599,3 +602,132 @@ def test_pcb_create_zone_surfaces_a_bad_net_as_a_message(tmp_path: Path) -> None
     tool = _tool(_zone_server(tmp_path), "pcb_create_zone")
 
     assert "Unknown net" in tool.fn(net="NOPE", layers=["B.Cu"], follow_board_outline=True)
+
+
+# --- footprint placement ---------------------------------------------------
+
+MODULE = """\
+(footprint "Conn_1x2"
+\t(version 20240108)
+\t(generator "pytest")
+\t(layer "F.Cu")
+\t(descr "test part")
+\t(attr through_hole)
+\t(property "Reference" "REF**"
+\t\t(at 0 -2 0)
+\t\t(layer "F.SilkS")
+\t)
+\t(property "Value" "Conn_1x2"
+\t\t(at 0 2 0)
+\t\t(layer "F.Fab")
+\t)
+\t(fp_rect
+\t\t(start -1 -1)
+\t\t(end 1 1)
+\t\t(layer "F.SilkS")
+\t)
+\t(pad "1" thru_hole rect (at -1.27 0) (size 1.8 1.8) (drill 1) (layers "*.Cu" "*.Mask"))
+\t(pad "2" thru_hole circle (at 1.27 0) (size 1.8 1.8) (drill 1) (layers "*.Cu" "*.Mask"))
+)
+"""
+
+
+def _place(root: SList, reference: str = "J9", side: str = "front") -> object:
+    return place_footprint(
+        root,
+        footprint_text=MODULE,
+        library="TestLib",
+        footprint="Conn_1x2",
+        reference=reference,
+        x_mm=25.0,
+        y_mm=30.0,
+        side=side,
+    )
+
+
+def test_place_footprint_adds_a_board_footprint() -> None:
+    root = _zone_board()
+    _place(root)
+
+    reparsed = parse(dumps(root))
+    placed = reparsed.children("footprint")
+    assert len(placed) == 1
+    assert str(placed[0][1]) == "TestLib:Conn_1x2"
+    assert board_references(reparsed) == {"J9"}
+
+
+def test_a_placed_footprint_drops_library_only_metadata() -> None:
+    """version and generator belong to a .kicad_mod, not to a board footprint."""
+    root = _zone_board()
+    _place(root)
+
+    block = root.children("footprint")[0]
+    tags = {child.tag for child in block if isinstance(child, SList)}
+    assert "version" not in tags
+    assert "generator" not in tags
+    assert {"uuid", "at", "pad"} <= tags
+
+
+def test_a_placed_footprint_records_where_it_was_put() -> None:
+    root = _zone_board()
+    _place(root)
+
+    at = root.children("footprint")[0].child("at")
+    assert [str(token) for token in at[1:]] == ["25", "30"]
+
+
+def test_placing_on_the_back_flips_side_specific_layers() -> None:
+    """Through-hole pads stay on *.Cu, which is side-agnostic and must not flip."""
+    root = _zone_board()
+    _place(root, side="back")
+
+    text = dumps(root.children("footprint")[0])
+    assert '(layer "B.Cu")' in text
+    assert '(layer "B.SilkS")' in text
+    assert '(layer "F.' not in text
+    assert '(layers "*.Cu" "*.Mask")' in text
+
+
+def test_placing_refuses_a_reference_already_on_the_board() -> None:
+    """Two footprints sharing a designator desync the board from the schematic."""
+    root = _zone_board()
+    _place(root, reference="J9")
+
+    with pytest.raises(ValueError, match="already on this board"):
+        _place(root, reference="J9")
+    assert len(root.children("footprint")) == 1
+
+
+def test_placing_refuses_an_unknown_side() -> None:
+    root = _zone_board()
+    with pytest.raises(ValueError, match="side must be"):
+        _place(root, side="edge")
+
+
+def test_placing_refuses_an_empty_reference() -> None:
+    root = _zone_board()
+    with pytest.raises(ValueError, match="needs a reference"):
+        _place(root, reference="  ")
+
+
+def test_placing_rejects_a_file_that_is_not_a_footprint() -> None:
+    root = _zone_board()
+    with pytest.raises(ValueError, match="does not contain a footprint"):
+        place_footprint(
+            root,
+            footprint_text="(kicad_symbol_lib)",
+            library="TestLib",
+            footprint="Nope",
+            reference="J9",
+            x_mm=0.0,
+            y_mm=0.0,
+        )
+
+
+def test_a_placed_footprint_has_no_nets_yet() -> None:
+    """Honest state: mechanically present, electrically isolated until linked."""
+    root = _zone_board()
+    _place(root)
+
+    block = root.children("footprint")[0]
+    assert all(pad.child("net") is None for pad in block.children("pad"))

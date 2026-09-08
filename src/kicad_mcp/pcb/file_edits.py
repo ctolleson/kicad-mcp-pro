@@ -16,7 +16,7 @@ import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
-from ..utils.sexpr_tree import Atom, Node, SList
+from ..utils.sexpr_tree import Atom, Node, SList, parse
 
 # Top-level board items, grouped the way KiCad's Global Deletions dialog groups them.
 ITEM_GROUPS: dict[str, tuple[str, ...]] = {
@@ -606,12 +606,129 @@ def create_zone(
     return report
 
 
+# Side-specific layers are mirrored when a footprint is placed on the back.
+_SIDE_FLIP = {
+    "F.Cu": "B.Cu", "B.Cu": "F.Cu",
+    "F.SilkS": "B.SilkS", "B.SilkS": "F.SilkS",
+    "F.Mask": "B.Mask", "B.Mask": "F.Mask",
+    "F.Paste": "B.Paste", "B.Paste": "F.Paste",
+    "F.CrtYd": "B.CrtYd", "B.CrtYd": "F.CrtYd",
+    "F.Fab": "B.Fab", "B.Fab": "F.Fab",
+}
+
+
+def board_references(root: SList) -> set[str]:
+    """Every reference designator already placed on the board."""
+    found: set[str] = set()
+    for footprint in root.children("footprint"):
+        for prop in footprint.children("property"):
+            if len(prop) >= 3 and str(prop[1]) == "Reference":
+                found.add(str(prop[2]))
+    return found
+
+
+def _flip_to_back(node: Node) -> None:
+    """Rewrite every side-specific layer token in a subtree to its opposite side."""
+    if not isinstance(node, SList):
+        return
+    if node.tag in {"layer", "layers"}:
+        for index, item in enumerate(node[1:], start=1):
+            if isinstance(item, Atom) and item.value in _SIDE_FLIP:
+                node[index] = Atom(_SIDE_FLIP[item.value], quoted=item.quoted)
+        return
+    for child in node:
+        _flip_to_back(child)
+
+
+def place_footprint(
+    root: SList,
+    *,
+    footprint_text: str,
+    library: str,
+    footprint: str,
+    reference: str,
+    x_mm: float,
+    y_mm: float,
+    rotation: float = 0.0,
+    side: str = "front",
+    value: str | None = None,
+    uuid_str: str | None = None,
+) -> EditReport:
+    """Place a library footprint onto the board, headlessly.
+
+    ``footprint_text`` is the ``.kicad_mod`` source. A board footprint is not the same
+    shape as a library one: it drops the library's ``version`` and ``generator``, and
+    gains a ``uuid`` and an ``(at ...)`` placement. Reference uniqueness is enforced,
+    because two footprints sharing a designator make the board disagree with the
+    schematic in a way that only shows up much later.
+
+    The pads carry no nets. A footprint placed this way is mechanically present and
+    electrically isolated until the schematic is linked, which is the honest state for
+    a part the schematic does not yet know about.
+    """
+    if side not in {"front", "back"}:
+        raise ValueError(f"side must be 'front' or 'back', got '{side}'.")
+    reference = reference.strip()
+    if not reference:
+        raise ValueError("A placed footprint needs a reference designator.")
+    existing = board_references(root)
+    if reference in existing:
+        raise ValueError(f"Reference '{reference}' is already on this board.")
+
+    parsed = parse(footprint_text)
+    source = parsed if isinstance(parsed, SList) and parsed.tag == "footprint" else None
+    if source is None and isinstance(parsed, list):
+        source = next(
+            (n for n in parsed if isinstance(n, SList) and n.tag == "footprint"),
+            None,
+        )
+    if source is None:
+        raise ValueError("That file does not contain a footprint definition.")
+
+    block = SList([Atom("footprint"), Atom(f"{library}:{footprint}", quoted=True)])
+    for child in source[2:]:
+        if isinstance(child, SList) and child.tag in {"version", "generator", "generator_version"}:
+            continue
+        block.append(child)
+
+    if side == "back":
+        _flip_to_back(block)
+
+    placement = [Atom("at"), Atom(f"{x_mm:g}"), Atom(f"{y_mm:g}")]
+    if rotation:
+        placement.append(Atom(f"{rotation:g}"))
+    # KiCad writes layer, then uuid, then at; keep that order so a round trip is quiet.
+    insert_at = 2
+    for index, child in enumerate(block):
+        if isinstance(child, SList) and child.tag == "layer":
+            insert_at = index + 1
+            break
+    block.insert(insert_at, SList([Atom("uuid"), Atom(uuid_str or str(uuid.uuid4()), quoted=True)]))
+    block.insert(insert_at + 1, SList(placement))
+
+    for prop in block.children("property"):
+        if len(prop) >= 3 and str(prop[1]) == "Reference":
+            prop[2] = Atom(reference, quoted=True)
+        elif len(prop) >= 3 and str(prop[1]) == "Value" and value is not None:
+            prop[2] = Atom(value, quoted=True)
+
+    root.append(block)
+    report = EditReport()
+    report.add(f"placed {library}:{footprint} as {reference} at ({x_mm:g}, {y_mm:g}) on the {side}")
+    pads = sum(1 for _ in block.children("pad"))
+    if pads:
+        report.add(f"{pads} pads, none connected to a net yet", pads)
+    return report
+
+
 __all__ = [
     "ITEM_GROUPS",
     "EditReport",
     "board_copper_layers",
+    "board_references",
     "board_outline_rectangle",
     "create_zone",
+    "place_footprint",
     "cleanup_tracks_and_vias",
     "global_delete",
     "list_zones",
