@@ -2338,7 +2338,7 @@ def _extract_wires(content: str) -> list[dict[str, Any]]:
     wires: list[dict[str, Any]] = []
     cursor = 0
     while cursor < len(content):
-        if content[cursor:].startswith("(wire"):
+        if content.startswith("(wire", cursor):
             block, length = _extract_block(content, cursor)
             if block:
                 pts_match = re.search(
@@ -2385,7 +2385,7 @@ def _get_symbol_bboxes(sexpr_content: str) -> list[BBox]:
     symbols: list[dict[str, Any]] = []
     cursor = 0
     while cursor < len(sexpr_content):
-        if sexpr_content[cursor:].startswith("(symbol"):
+        if sexpr_content.startswith("(symbol", cursor):
             block, length = _extract_block(sexpr_content, cursor)
             if block:
                 parsed = _parse_symbol_block(block)
@@ -2402,7 +2402,7 @@ def _remove_wire_blocks(content: str) -> str:
     cursor = 0
     last = 0
     while cursor < len(content):
-        if content[cursor:].startswith("(wire"):
+        if content.startswith("(wire", cursor):
             block, length = _extract_block(content, cursor)
             if block and _parse_wire_block(block) is not None:
                 pieces.append(content[last:cursor])
@@ -2415,21 +2415,38 @@ def _remove_wire_blocks(content: str) -> str:
 
 
 def _normalize_schematic_wire_connectivity(content: str) -> str:
+    """Rewrite a schematic's wires: drop duplicates and add missing T-junctions.
+
+    Runs on every schematic write, including edits that never touch a wire, so it
+    must leave existing wires alone. It preserves each surviving wire's UUID: the
+    rewrite is the same wire moved in the file, not a new one, and KiCad keys
+    connectivity, ERC exclusions, and cross-probing off that UUID.
+    """
     wires = _extract_wires(content)
     segments = _wire_segments_from_content(content)
-    deduped = _deduplicate_segments(segments)
+    deduped = _deduplicate_segments(segments, merge_collinear=False)
     if not deduped:
         return content
-    uuid_map: dict[tuple[float, float, float, float], str] = {}
+    # Junctions are detected on a merged view, though the unmerged wires are what
+    # gets written. _detect_t_intersections only fires for a point interior to
+    # another segment, so three wires meeting at a shared endpoint register only
+    # once the two collinear ones are seen as the single run they form.
+    merged = _deduplicate_segments(segments)
+    # Keyed on the orientation-normalized segment, matching ``deduped``: a wire
+    # stored end-first still finds its own UUID instead of being issued a new one.
+    uuid_map: dict[tuple[tuple[float, float], tuple[float, float]], str] = {}
     for w in wires:
-        key = (w["x1"], w["y1"], w["x2"], w["y2"])
+        key = _segment_key((w["x1"], w["y1"], w["x2"], w["y2"]))
         if "uuid" in w:
-            uuid_map[key] = w["uuid"]
-    updated = _remove_wire_blocks(content)
-    for segment in deduped:
-        uid = uuid_map.get(segment)
-        updated = _append_before_sheet_instances(updated, wire_block(*segment, uuid_str=uid))
-    return _insert_junctions_for_batch(updated, _detect_t_intersections(deduped))
+            uuid_map.setdefault(key, w["uuid"])
+    # One splice for all wires. Appending them one at a time rescans and recopies the
+    # whole file per wire, which is O(wires x file size): a 3 MB sheet with a few
+    # thousand wires took minutes. The insertion order, and so the output, is the same.
+    blocks = "\n".join(
+        wire_block(*segment, uuid_str=uuid_map.get(_segment_key(segment))) for segment in deduped
+    )
+    updated = _append_before_sheet_instances(_remove_wire_blocks(content), blocks)
+    return _insert_junctions_for_batch(updated, _detect_t_intersections(merged))
 
 
 def _extract_labels(content: str) -> list[dict[str, Any]]:
@@ -2500,7 +2517,7 @@ def _schematic_object_map(content: str) -> dict[str, dict[str, Any]]:
 
     cursor = 0
     while cursor < len(content):
-        if content[cursor:].startswith("(symbol"):
+        if content.startswith("(symbol", cursor):
             block, length = _extract_block(content, cursor)
             if block:
                 parsed = _parse_symbol_block(block)
@@ -3516,8 +3533,19 @@ def _detect_t_intersections(
 
 def _deduplicate_segments(
     segments: list[tuple[float, float, float, float]],
+    *,
+    merge_collinear: bool = True,
 ) -> list[tuple[float, float, float, float]]:
-    """Remove duplicate wire segments and merge collinear touching runs."""
+    """Drop degenerate and duplicate wire segments; optionally merge collinear runs.
+
+    ``merge_collinear`` joins touching collinear segments into one longer run. That
+    is right for a freshly planned route, where a two-segment straight line is an
+    artifact of the planner. It is wrong for wires already in a schematic: an author
+    who split a run at a junction meant to split it, the merged run takes a new UUID
+    because it is new geometry, and the segment count drops - which
+    :func:`_guard_schematic_structural_loss` refuses, failing the write. Whole-file
+    normalization therefore passes ``merge_collinear=False``.
+    """
     unique: dict[
         tuple[tuple[float, float], tuple[float, float]],
         tuple[float, float, float, float],
@@ -3530,6 +3558,10 @@ def _deduplicate_segments(
         if key not in unique:
             (sx, sy), (ex, ey) = key
             unique[key] = (sx, sy, ex, ey)
+
+    if not merge_collinear:
+        # Insertion order is file order, so an unrelated edit leaves wire order alone.
+        return list(unique.values())
 
     horizontal: dict[float, list[tuple[float, float]]] = {}
     vertical: dict[float, list[tuple[float, float]]] = {}
@@ -4904,7 +4936,7 @@ def _find_placed_symbol_blocks(
     matches: list[tuple[str, int, int, dict[str, Any]]] = []
     cursor = 0
     while cursor < len(content):
-        if content[cursor:].startswith("(symbol"):
+        if content.startswith("(symbol", cursor):
             block, length = _extract_block(content, cursor)
             if block:
                 parsed = _parse_symbol_block(block)
@@ -5419,7 +5451,7 @@ def _find_all_placed_symbol_blocks(
     matches: list[tuple[str, int, int, dict[str, Any]]] = []
     cursor = 0
     while cursor < len(content):
-        if content[cursor:].startswith("(symbol"):
+        if content.startswith("(symbol", cursor):
             block, length = _extract_block(content, cursor)
             if block:
                 parsed = _parse_symbol_block(block)

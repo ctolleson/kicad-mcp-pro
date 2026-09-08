@@ -6,6 +6,7 @@ __all__ = [
     "emc_compliance",
     "export",
     "library",
+    "menu_navigation",
     "net_analysis",
     "pcb",
     "power_integrity",

@@ -15,6 +15,7 @@ This directory maps common tasks to the existing operational documentation.
 - Schematic to PCB: `docs/workflows/schematic-to-pcb.md`
 - Professional circuit design: `docs/workflows/professional-circuit-design.md`
 - Manufacturing export: `docs/workflows/manufacturing-export.md`
+- Drive KiCad menus headlessly: `docs/how-to/drive-kicad-menus-headlessly.md`
 
 ## Operate and maintain
 

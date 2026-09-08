@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from kicad_mcp.tools.schematic import (
     BBox,
     _apply_basic_auto_layout,
@@ -402,3 +404,95 @@ def test_pin_alias_resolves_diff_pair_and_duplicate_contacts() -> None:
     assert "d" not in aliases
     # Pin numbers still resolve.
     assert aliases["1"] == aliases["D+"]  # keep-first contact for D+
+
+
+def test_normalize_preserves_collinear_touching_wires_and_their_uuids() -> None:
+    """A general edit must not merge wires an author split, nor reissue their UUIDs.
+
+    Two touching collinear segments are a legitimate authored split - KiCad puts a
+    junction there when a third wire lands on the shared point. Merging them drops
+    the wire count, which the write guard refuses, so an unrelated edit (adding a
+    label, say) would fail outright on any schematic that contains such a pair.
+    """
+    content = (
+        "(kicad_sch\n"
+        '\t(wire (pts (xy 0 0) (xy 10 0)) (uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))\n'
+        '\t(wire (pts (xy 10 0) (xy 20 0)) (uuid "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"))\n'
+        "\t(sheet_instances)\n"
+        ")"
+    )
+
+    normalized = _normalize_schematic_wire_connectivity(content)
+
+    assert normalized.count("(wire") == 2
+    assert "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" in normalized
+    assert "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" in normalized
+
+
+def test_normalize_keeps_uuid_of_a_wire_stored_end_first() -> None:
+    """The UUID lookup must not depend on which endpoint KiCad wrote first."""
+    content = (
+        "(kicad_sch\n"
+        '\t(wire (pts (xy 20 0) (xy 0 0)) (uuid "cccccccc-cccc-cccc-cccc-cccccccccccc"))\n'
+        "\t(sheet_instances)\n"
+        ")"
+    )
+
+    normalized = _normalize_schematic_wire_connectivity(content)
+
+    assert normalized.count("(wire") == 1
+    assert "cccccccc-cccc-cccc-cccc-cccccccccccc" in normalized
+
+
+def test_deduplicate_segments_still_merges_collinear_runs_for_route_planning() -> None:
+    """Route planning keeps the merge: a straight two-segment route is one wire."""
+    segments = [(0.0, 0.0, 10.0, 0.0), (10.0, 0.0, 20.0, 0.0)]
+
+    assert _deduplicate_segments(segments) == [(0.0, 0.0, 20.0, 0.0)]
+    assert _deduplicate_segments(segments, merge_collinear=False) == segments
+
+
+def test_wire_scan_is_linear_in_file_size() -> None:
+    """Scanning must not copy the file tail at each character.
+
+    ``content[cursor:].startswith(...)`` allocates the whole remainder per position,
+    making a scan quadratic: a 2 MB sheet took over three minutes to normalize.
+    Doubling the input must not roughly quadruple the work.
+    """
+    filler = '\t(text "x" (at 0 0 0))\n' * 4000
+    small = f'(kicad_sch\n{filler}\t(wire (pts (xy 0 0) (xy 10 0)) (uuid "d"))\n)'
+    large = f'(kicad_sch\n{filler * 4}\t(wire (pts (xy 0 0) (xy 10 0)) (uuid "d"))\n)'
+
+    start = time.perf_counter()
+    _extract_wires(small)
+    small_elapsed = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _extract_wires(large)
+    large_elapsed = time.perf_counter() - start
+
+    # Linear would be ~4x. Quadratic would be ~16x. Allow generous CI slack.
+    assert large_elapsed < max(small_elapsed * 9, 0.5)
+
+
+def test_normalize_still_junctions_three_wires_at_a_shared_endpoint() -> None:
+    """Keeping wires unmerged must not cost the junction they need.
+
+    ``_detect_t_intersections`` only fires for a point interior to another segment,
+    so a point where three wire *endpoints* meet is invisible until the two collinear
+    ones are treated as the single run they form. Junctions are therefore detected on
+    a merged view while the unmerged wires are what gets written.
+    """
+    content = (
+        "(kicad_sch\n"
+        '\t(wire (pts (xy 0 0) (xy 10 0)) (uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))\n'
+        '\t(wire (pts (xy 10 0) (xy 20 0)) (uuid "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"))\n'
+        '\t(wire (pts (xy 10 0) (xy 10 10)) (uuid "cccccccc-cccc-cccc-cccc-cccccccccccc"))\n'
+        "\t(sheet_instances)\n"
+        ")"
+    )
+
+    normalized = _normalize_schematic_wire_connectivity(content)
+
+    assert normalized.count("(wire") == 3
+    assert "(junction (at 10 0)" in normalized

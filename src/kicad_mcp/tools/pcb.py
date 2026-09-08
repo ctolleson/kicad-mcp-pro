@@ -107,6 +107,7 @@ from ..utils.units import _coord_nm, mm_to_nm, nm_to_mm
 from . import (
     pcb_basic_inspection,
     pcb_board_inspection,
+    pcb_file_edits,
     pcb_file_inspection,
     pcb_groups_inspection,
     pcb_origin_management,
@@ -418,18 +419,39 @@ def _parse_stackup_specs_from_board_text(content: str) -> list[StackupLayerSpec]
             break
         cursor = start + length
         stripped = layer_block.lstrip()
-        quoted = re.match(r'\(layer\s+"([^"]+)"\s+(\d+)', stripped)
+        # Inside (setup (stackup ...)) KiCad writes the layer name alone —
+        # `(layer "F.Cu"` and `(layer "dielectric 1"` — with no ordinal index. The
+        # indexed form `(layer "F.Cu" 0 ...)` only appears in the board's top-level
+        # (layers ...) list, so requiring an index here matched nothing and made every
+        # headless stackup read fail.
+        quoted = re.match(r'\(layer\s+"([^"]+)"', stripped)
         dielectric = re.match(r"\(layer\s+dielectric\s+(\d+)", stripped)
-        if quoted is not None:
-            layer_name = resolve_layer_name(quoted.group(1))
-        elif dielectric is not None:
-            layer_name = f"dielectric_{dielectric.group(1)}"
-        else:
+        if quoted is None and dielectric is None:
             continue
 
         type_match = re.search(r'\(type\s+"([^"]+)"\)', layer_block)
         thickness_match = re.search(rf"\(thickness\s+({FLOAT_PATTERN})\)", layer_block)
         if thickness_match is None:
+            # Silkscreen and paste layers carry no thickness and contribute nothing to
+            # the stack; skip them before resolving a name, since they are also outside
+            # the copper/technical layer vocabulary.
+            continue
+
+        if quoted is not None:
+            raw_name = quoted.group(1)
+            quoted_dielectric = re.fullmatch(r"dielectric\s+(\d+)", raw_name)
+            if quoted_dielectric is not None:
+                layer_name = f"dielectric_{quoted_dielectric.group(1)}"
+            else:
+                try:
+                    layer_name = resolve_layer_name(raw_name)
+                except ValueError:
+                    # A stackup may name layers the editing vocabulary does not model;
+                    # keep the board's own name rather than dropping the layer.
+                    layer_name = raw_name.replace(".", "_")
+        elif dielectric is not None:
+            layer_name = f"dielectric_{dielectric.group(1)}"
+        else:  # pragma: no cover - guarded by the match check above
             continue
         material_match = re.search(r'\(material\s+"([^"]+)"\)', layer_block)
         epsilon_match = re.search(rf"\(epsilon_r\s+({FLOAT_PATTERN})\)", layer_block)
@@ -1423,7 +1445,7 @@ def _iter_blocks(content: str, keyword: str) -> Iterable[str]:
     cursor = 0
     marker = f"({keyword}"
     while cursor < len(content):
-        if content[cursor:].startswith(marker):
+        if content.startswith(marker, cursor):
             block, length = _extract_block(content, cursor)
             if block:
                 yield block
@@ -1585,7 +1607,7 @@ def _parse_board_footprint_blocks(content: str) -> dict[str, dict[str, Any]]:
     with otel.pcb_parse_span() as span:
         cursor = 0
         while cursor < len(content):
-            if content[cursor:].startswith("(footprint"):
+            if content.startswith("(footprint", cursor):
                 block, length = _extract_block(content, cursor)
                 if block:
                     ref_match = re.search(rf'\(property\s+"Reference"\s+{STRING_PATTERN}', block)
@@ -2283,7 +2305,7 @@ def _assign_pad_nets(block: str, pad_nets: dict[str, str]) -> str:
     rebuilt: list[str] = []
     cursor = 0
     while cursor < len(block):
-        if block[cursor:].startswith("(pad"):
+        if block.startswith("(pad", cursor):
             pad_block, length = _extract_block(block, cursor)
             if pad_block:
                 pad_match = re.match(rf"\(pad\s+{STRING_PATTERN}", pad_block.lstrip())
@@ -3392,13 +3414,43 @@ def _register_board_mutation_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
+    @headless_compatible
     def pcb_set_net_class(net_name: str, class_name: str) -> str:
-        """Assign a net class when the runtime supports it."""
-        if active_operating_mode(get_config()) is not OperatingMode.EXPERIMENTAL:
-            return "Net class assignment is experimental. Enable experimental tools to try it."
+        """Assign one net to a net class.
+
+        KiCad has no IPC operation for this, but the assignment lives in the project
+        file's netclass patterns, so it is a file edit. The net name is matched
+        exactly; use pcb_assign_nets_to_class() for wildcard patterns, and
+        pcb_define_net_class() to set the class's track and via sizes.
+        """
+        from ..project.board_setup import (
+            BoardSetupError,
+            assign_patterns,
+            describe,
+            read_project,
+            write_project,
+        )
+
+        cfg = get_config()
+        if cfg.project_file is None or not cfg.project_file.exists():
+            return "No .kicad_pro is configured. Call kicad_set_project() first."
+        try:
+            project = read_project(cfg.project_file)
+            # Keep this class's existing patterns; add the one net.
+            current = [
+                p["pattern"]
+                for p in describe(project)["netclass_patterns"]
+                if p.get("netclass") == class_name
+            ]
+            if net_name in current:
+                return f"Net '{net_name}' is already assigned to net class '{class_name}'."
+            assign_patterns(project, class_name, [*current, net_name])
+            write_project(cfg.project_file, project)
+        except BoardSetupError as exc:
+            return f"Net class assignment failed: {exc}"
         return (
-            "Direct net class assignment is not exposed as a stable KiCad 10.x IPC operation. "
-            f"Update the project rules for net '{net_name}' to use class '{class_name}'."
+            f"Assigned net '{net_name}' to net class '{class_name}' in "
+            f"{cfg.project_file.name}. Reload the board in KiCad to pick it up."
         )
 
     @mcp.tool()
@@ -4961,6 +5013,17 @@ def register(mcp: FastMCP) -> None:
                 nm_to_mm=nm_to_mm,
                 connection_errors=(KiCadConnectionError, OSError),
             )
+        ),
+    )
+
+    pcb_file_edits.register(
+        mcp,
+        pcb_file_edits.PcbFileEditDependencies(
+            transactional_board_write=_transactional_board_write,
+            read_board_text=lambda: _get_pcb_file_for_sync().read_text(
+                encoding="utf-8", errors="ignore"
+            ),
+            configured_board_file=_configured_board_file,
         ),
     )
 

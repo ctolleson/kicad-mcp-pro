@@ -1855,6 +1855,7 @@ def _register_profile_components(
     from .prompts import workflows
     from .resources import analysis, board_state, server_info, studio_context
     from .tools import (
+        annotation_sync,
         capability_parity,
         dfm,
         embedded_files,
@@ -1862,8 +1863,10 @@ def _register_profile_components(
         export,
         library,
         manufacturing,
+        menu_navigation,
         net_analysis,
         pcb,
+        pcb_board_setup,
         power_integrity,
         project,
         routing,
@@ -1886,10 +1889,13 @@ def _register_profile_components(
     router.register(server)
     project.register(server)
     capability_parity.register(server)
+    annotation_sync.register(server)
+    menu_navigation.register(server)
     embedded_files.register(server)
 
     if "pcb_read" in enabled or "pcb_write" in enabled:
         pcb.register(server)
+        pcb_board_setup.register(server)
         net_analysis.register(server)
         test_points.register(server)
     if "schematic" in enabled:

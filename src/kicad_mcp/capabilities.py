@@ -378,6 +378,12 @@ def _is_read_tool(name: str, category: str) -> bool:
             "kicad_get_",
             "kicad_list_",
             "kicad_help",
+            "kicad_menu_frames",
+            "kicad_menu_tree",
+            "kicad_menu_search",
+            "kicad_menu_describe",
+            "kicad_menu_coverage",
+            "kicad_menu_export_map",
             "project_get_",
             "project_assess_",
             "project_validate_",
@@ -390,6 +396,8 @@ def _is_read_tool(name: str, category: str) -> bool:
             "sch_check_",
             "sch_trace_",
             "pcb_get_",
+            "pcb_list_",
+            "pcb_compare_",
             "pcb_check_",
             "pcb_placement_quality_",
             "pcb_transfer_quality_",
@@ -425,8 +433,32 @@ def _tier_for_tool(name: str, category: str) -> AccessTier:
     return AccessTier.WRITE
 
 
+# Board writes that operate on the .kicad_pcb file rather than a live KiCad session.
+# Without this they inherit pcb_write's KICAD_IPC requirement and get hidden from
+# discovery whenever no board is open — exactly the headless case they exist for.
+_FILE_BACKED_PCB_WRITES = frozenset(
+    {
+        "pcb_swap_layers",
+        "pcb_global_delete",
+        "pcb_cleanup_tracks_and_vias",
+        "pcb_set_zone_properties",
+        "pcb_set_stackup",
+        "pcb_set_predefined_sizes",
+        "pcb_update_from_schematic",
+        "sch_update_from_pcb",
+        "pcb_define_net_class",
+        "pcb_delete_net_class",
+        "pcb_assign_nets_to_class",
+        "pcb_apply_manufacturer_rules",
+        "pcb_set_net_class",
+    }
+)
+
+
 def _runtime_for_tool(name: str, category: str, tier: AccessTier) -> RuntimeRequirement:
     if name in {"sch_render_png", "sch_render_visual_diff", "sch_set_title_block_info"}:
+        return RuntimeRequirement.NONE
+    if name in _FILE_BACKED_PCB_WRITES:
         return RuntimeRequirement.NONE
     if category == "simulation" or name.startswith("sim_"):
         return RuntimeRequirement.NGSPICE

@@ -1,0 +1,1306 @@
+# How every KiCad menu command maps onto a headless execution path.
+#
+# The menu tree itself is extracted from KiCad's C++ source by
+# scripts/extract_kicad_menus.py into menu_catalog.json. This file answers the
+# second question: for each menu command, *can an agent do that without the GUI,
+# and how?*
+#
+# Resolution order for an action name:
+#   1. an exact entry in `overrides`
+#   2. the first matching prefix in `namespace_rules`
+#   3. `default_binding`
+#
+# Honesty rule: `gui-only` means KiCad genuinely exposes no cli/ipc/file path for
+# that command. It is a KiCad limit, not a missing feature here, and such rows are
+# excluded from the coverage denominator. If a headless path exists but this server
+# does not drive it yet, the channel is the reachable one and `status: gap`.
+
+schema_version: 1
+kicad_version: "10.0.6"
+
+channels:
+  mcp: "A registered MCP tool drives this command directly."
+  cli: "Reachable by running a kicad-cli subcommand (fully headless)."
+  file: "Reachable by editing the .kicad_pcb / .kicad_sch / .kicad_pro S-expression or JSON."
+  ipc: "Reachable through the KiCad IPC API against a running KiCad instance."
+  gui-only: "Interactive-only. KiCad exposes no cli, ipc or file path for it."
+
+statuses:
+  covered: "An MCP tool fully drives this menu command."
+  partial: "Partly driven, or driven with a tracked limitation."
+  gap: "KiCad exposes a headless path but no MCP tool drives it yet."
+  gui-only: "No headless path exists in KiCad. Excluded from the coverage denominator."
+
+default_binding:
+  channel: gui-only
+  status: gui-only
+  notes: "Unclassified interactive command."
+
+# ---------------------------------------------------------------------------
+# Namespace rules: KiCad encodes a command's nature in its action name, so the
+# tool namespace is a reliable default. Ordered; first matching prefix wins.
+# ---------------------------------------------------------------------------
+namespace_rules:
+  - prefix: "pcbnew.InteractiveRouter."
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      Push-and-shove routing is driven by live pointer input. Headless routing is
+      offered instead by route_single_track / route_differential_pair, which write
+      geometry directly rather than replaying the interactive router.
+
+  - prefix: "pcbnew.LengthTuner."
+    channel: gui-only
+    status: gui-only
+    notes: "Interactive meander tuning; route_tune_length is the headless analogue."
+
+  - prefix: "pcbnew.MicrowaveTool."
+    channel: gui-only
+    status: gui-only
+    notes: "Microwave shape tools are canvas-driven with no scripted entry point."
+
+  - prefix: "pcbnew.InteractiveDrawing."
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas drawing tool: requires pointer input on a live editor canvas."
+
+  - prefix: "eeschema.SymbolDrawing."
+    channel: gui-only
+    status: gui-only
+    notes: "Symbol-editor canvas drawing tool."
+
+  - prefix: "plEditor.InteractiveDrawing."
+    channel: gui-only
+    status: gui-only
+    notes: "Drawing-sheet editor canvas tool."
+
+  - prefix: "eeschema.NavigateTool."
+    channel: gui-only
+    status: gui-only
+    notes: "Viewport navigation; meaningless without a window."
+
+  - prefix: "common.Interactive."
+    channel: gui-only
+    status: gui-only
+    notes: "Clipboard, selection and undo act on live editor state."
+
+  - prefix: "common.Checker."
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      Marker navigation walks the GUI's violation list. run_drc / run_erc return the
+      same violations as data, and drc_add_exclusion records the exclusions.
+
+  - prefix: "gerbview."
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      GerbView is a viewer with no headless surface. Gerber generation is covered by
+      export_gerber; inspection of generated art is not scriptable in KiCad 10.
+
+  - prefix: "plEditor."
+    channel: gui-only
+    status: gui-only
+    notes: "Drawing Sheet Editor has no kicad-cli or IPC surface in KiCad 10."
+
+  - prefix: "cvpcb."
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      CvPcb is an interactive assignment UI. lib_assign_footprint performs the same
+      schematic edit headlessly.
+
+  - prefix: "eeschema.InteractiveDrawing."
+    channel: gui-only
+    status: gui-only
+    notes: "Schematic canvas drawing tool; the place* commands have explicit headless bindings."
+
+  - prefix: "eeschema.InteractiveDrawingLineWireBus."
+    channel: gui-only
+    status: gui-only
+    notes: "Graphic line drawing; wires and buses have explicit headless bindings."
+
+  - prefix: "eeschema.RemoteSymbols."
+    channel: gui-only
+    status: gui-only
+    notes: "Docked panel."
+
+  - prefix: "eeschema.SchDesignBlockControl."
+    channel: gui-only
+    status: gui-only
+    notes: "Docked panel; design blocks are not modelled by this server."
+
+  - prefix: "pcbnew.PcbDesignBlockControl."
+    channel: gui-only
+    status: gui-only
+    notes: "Docked panel."
+
+  - prefix: "pcbnew.Control."
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      Rendering and display modes (sketch/filled, layer opacity, docked panels) change
+      how the canvas draws, not the design. Nothing to drive headlessly.
+
+  - prefix: "common.Control.zoom"
+    channel: gui-only
+    status: gui-only
+    notes: "Viewport zoom."
+
+  - prefix: "common.Control.toggle"
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas display toggle."
+
+  - prefix: "common.Control.show"
+    channel: gui-only
+    status: gui-only
+    notes: "Opens another editor window or docked panel."
+
+  - prefix: "eeschema.EditorControl.show"
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas visibility toggle or docked panel."
+
+  - prefix: "eeschema.EditorControl.toggle"
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas visibility toggle."
+
+  - prefix: "eeschema.SymbolLibraryControl.showHidden"
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas visibility toggle."
+
+  - prefix: "eeschema.InspectionTool.show"
+    channel: gui-only
+    status: gui-only
+    notes: "Help popup."
+
+  - prefix: "common.SuiteControl."
+    channel: gui-only
+    status: gui-only
+    notes: "Application-level dialogs (about, help, hotkey list, bug report)."
+
+# ---------------------------------------------------------------------------
+# Per-action overrides.
+# ---------------------------------------------------------------------------
+overrides:
+
+  # --- Design checks -------------------------------------------------------
+  "pcbnew.DRCTool.runDRC":
+    channel: mcp
+    status: covered
+    mcp_tool: run_drc
+    cli_command: ["pcb", "drc"]
+    notes: >-
+      Inspect > Design Rules Checker. run_drc reports violations as structured data;
+      the same check runs headlessly via `kicad-cli pcb drc`.
+
+  "eeschema.InspectionTool.runERC":
+    channel: mcp
+    status: covered
+    mcp_tool: run_erc
+    cli_command: ["sch", "erc"]
+    notes: "Inspect > Electrical Rules Checker, equivalent to `kicad-cli sch erc`."
+
+  "pcbnew.DRETool.drcRuleEditor":
+    channel: mcp
+    status: covered
+    mcp_tool: drc_rule_create
+    notes: >-
+      The custom-rule editor writes project DRC rules. drc_rule_create / drc_rule_delete
+      / drc_rule_enable / drc_export_rules / drc_check_rule_conflicts drive the same
+      rule set from files.
+
+  "pcbnew.InspectionTool.InspectClearance":
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_get_design_rules
+    notes: "Clearance resolution for a pair of items; pcb_get_design_rules reports the resolved constraints."
+
+  "pcbnew.InspectionTool.InspectConstraints":
+    channel: mcp
+    status: covered
+    mcp_tool: generate_board_constraints
+    notes: "Constraint resolution report."
+
+  "pcbnew.InspectionTool.ShowBoardStatistics":
+    channel: mcp
+    status: covered
+    mcp_tool: get_board_stats
+    cli_command: ["pcb", "export", "stats"]
+    notes: "Also available as pcb_export_stats / `kicad-cli pcb export stats`."
+
+  "pcbnew.InspectionTool.ShowFootprintAssociations":
+    channel: mcp
+    status: covered
+    mcp_tool: validate_footprints_vs_schematic
+    notes: "Cross-checks board footprints against schematic assignments."
+
+  "pcbnew.InspectionTool.DiffFootprint":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_certify_footprint
+    notes: "Compares a placed footprint against its library source."
+
+  "pcbnew.ModuleEditor.checkFootprint":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_validate_footprint_ipc7351
+    notes: "Footprint Checker; lib_certify_footprint adds library-contract checks."
+
+  "eeschema.InspectionTool.checkSymbol":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_verify_component_contract
+    notes: "Symbol Checker equivalent."
+
+  "eeschema.InspectionTool.diffSymbol":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_visual_baseline_compare
+    notes: >-
+      Compare Symbol with Library. sch_visual_baseline_compare diffs rendered output;
+      a field-level symbol-vs-library diff is not exposed as its own tool.
+
+  "pcbnew.Control.showNetInspector":
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_net_inspector
+    notes: "Net Inspector panel data, including per-net length and via counts."
+
+  "pcbnew.Control.repairBoard":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_upgrade
+    notes: >-
+      Repair Board rebuilds corrupt connectivity in memory. pcb_upgrade re-saves the
+      board through KiCad's own loader, which fixes format-level damage but not every
+      in-memory repair the GUI performs.
+
+  "pcbnew.ModuleEditor.repairFootprint":
+    channel: mcp
+    status: partial
+    mcp_tool: fp_upgrade
+    notes: "fp_upgrade re-saves through KiCad's loader; not a full geometric repair."
+
+  # --- Board Setup: stackup, rules, net classes ----------------------------
+  "pcbnew.EditorControl.boardSetup":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_get_stackup
+    notes: >-
+      Board Setup is a multi-page dialog. Headless equivalents exist per page:
+      stackup -> pcb_get_stackup / pcb_set_stackup / si_generate_stackup /
+      si_synthesize_stackup_for_interfaces; design rules -> pcb_get_design_rules,
+      drc_rule_create; net classes -> route_set_net_class_rules; constraints ->
+      generate_board_constraints. There is no single tool that opens the whole dialog,
+      hence partial.
+
+  "eeschema.EditorControl.schematicSetup":
+    channel: mcp
+    status: partial
+    mcp_tool: erc_list_rules
+    notes: >-
+      Schematic Setup pages map to erc_list_rules / erc_set_rule_severity /
+      erc_reset_rules (violation severities) and sch_set_title_block_info
+      (page/title block). Field-name templates and bus alias editing are not exposed.
+
+  "pcbnew.Control.zonesManager":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_list_zones
+    notes: >-
+      pcb_list_zones reports every zone; pcb_set_zone_properties edits priority, name,
+      minimum thickness and fill state (clearing stale fill geometry when unfilled).
+      Net reassignment and per-zone clearance/thermal settings are not exposed yet.
+
+  "pcbnew.ZoneFiller.zoneFillAll":
+    channel: cli
+    status: partial
+    cli_command: ["pcb", "drc"]
+    notes: >-
+      KiCad has no standalone "fill zones" CLI verb. `kicad-cli pcb drc` and the plot/
+      export commands refill zones as a side effect, so a DRC run is the headless way
+      to force a refill before export.
+
+  "pcbnew.ZoneFiller.zoneUnfillAll":
+    channel: gui-only
+    status: gui-only
+    notes: "No headless unfill; zone fill state is regenerated on the next fill."
+
+  # --- Fabrication outputs -------------------------------------------------
+  "pcbnew.EditorControl.generateGerbers":
+    channel: mcp
+    status: covered
+    mcp_tool: export_gerber
+    cli_command: ["pcb", "export", "gerbers"]
+
+  "pcbnew.EditorControl.generateDrillFiles":
+    channel: mcp
+    status: covered
+    mcp_tool: export_drill
+    cli_command: ["pcb", "export", "drill"]
+
+  "pcbnew.EditorControl.generatePosFile":
+    channel: mcp
+    status: covered
+    mcp_tool: export_pick_and_place
+    cli_command: ["pcb", "export", "pos"]
+
+  "pcbnew.EditorControl.generateIPC2581File":
+    channel: mcp
+    status: covered
+    mcp_tool: export_ipc2581
+    cli_command: ["pcb", "export", "ipc2581"]
+
+  "pcbnew.EditorControl.generateODBPPFile":
+    channel: mcp
+    status: covered
+    mcp_tool: export_odb
+    cli_command: ["pcb", "export", "odb"]
+
+  "pcbnew.EditorControl.generateD356File":
+    channel: mcp
+    status: covered
+    mcp_tool: export_ipc_d356
+    cli_command: ["pcb", "export", "ipcd356"]
+
+  "pcbnew.EditorControl.generateBOM":
+    channel: mcp
+    status: covered
+    mcp_tool: export_bom
+    notes: "PCB-side BOM; export_bom reads the schematic BOM, variant_export_bom for variants."
+
+  "pcbnew.EditorControl.generateReportFile":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_export_stats
+    notes: >-
+      The .rpt footprint report has no kicad-cli verb. pcb_export_stats and
+      pcb_get_footprints supply the same content in structured form.
+
+  # --- PCB export ----------------------------------------------------------
+  "pcbnew.EditorControl.exportSTEP":
+    channel: mcp
+    status: covered
+    mcp_tool: export_step
+    cli_command: ["pcb", "export", "step"]
+    notes: "export_glb / export_brep / export_xao / export_ply / export_stl / export_stepz cover the sibling formats."
+
+  "pcbnew.EditorControl.exportVRML":
+    channel: mcp
+    status: covered
+    mcp_tool: export_vrml
+    cli_command: ["pcb", "export", "vrml"]
+
+  "pcbnew.EditorControl.exportGenCAD":
+    channel: mcp
+    status: covered
+    mcp_tool: export_gencad
+    cli_command: ["pcb", "export", "gencad"]
+
+  "pcbnew.EditorControl.exportSpecctraDSN":
+    channel: mcp
+    status: covered
+    mcp_tool: route_export_dsn
+
+  "pcbnew.EditorControl.importSpecctraSession":
+    channel: mcp
+    status: covered
+    mcp_tool: route_import_ses
+    notes: "route_apply_ses applies the imported session to the board."
+
+  "pcbnew.EditorControl.exportIDF":
+    channel: gui-only
+    status: gui-only
+    notes: "IDFv3 export has no kicad-cli verb and no IPC entry point in KiCad 10.0.6."
+
+  "pcbnew.EditorControl.exportHyperlynx":
+    channel: gui-only
+    status: gui-only
+    notes: "Hyperlynx export is dialog-only in KiCad 10.0.6."
+
+  "pcbnew.EditorControl.exportFootprintAssociations":
+    channel: gui-only
+    status: gui-only
+    notes: "The .cmp association file is written only from the dialog."
+
+  "pcbnew.EditorControl.exportFootprints":
+    channel: mcp
+    status: covered
+    mcp_tool: fp_export
+    notes: "Exports board footprints into a library."
+
+  "common.Control.plot":
+    channel: mcp
+    status: covered
+    mcp_tool: export_pcb_pdf
+    cli_command: ["pcb", "export", "pdf"]
+    notes: >-
+      Plot targets the same engine as the export verbs: export_pcb_pdf / export_svg /
+      export_dxf / export_ps for the board, export_sch_pdf / export_sch_svg /
+      export_sch_dxf for the schematic.
+
+  "common.Control.print":
+    channel: cli
+    status: partial
+    cli_command: ["pcb", "export", "pdf"]
+    notes: "Printing to a physical device is GUI-only; exporting a PDF is the headless equivalent."
+
+  "pcbnew.EditorControl.collect3DModels":
+    channel: mcp
+    status: covered
+    mcp_tool: project_embed_file
+    notes: "Embeds referenced 3D models into the board file."
+
+  # --- PCB import ----------------------------------------------------------
+  "pcbnew.EditorControl.importNetlist":
+    channel: mcp
+    status: partial
+    mcp_tool: validate_footprints_vs_schematic
+    notes: >-
+      Importing a netlist is the update-board-from-schematic path. See
+      common.Control.updatePcbFromSchematic: no headless KiCad verb performs the
+      full board update in 10.0.6.
+
+  "pcbnew.EditorControl.openNonKicadBoard":
+    channel: mcp
+    status: covered
+    mcp_tool: mfg_import_specctra
+    cli_command: ["pcb", "import"]
+    notes: "mfg_import_allegro / mfg_import_pads / mfg_import_geda cover the other source formats; mfg_check_import_support reports what the installed KiCad accepts."
+
+  "pcbnew.EditorControl.appendBoard":
+    channel: file
+    status: gap
+    notes: "Appending another board's contents has no CLI verb; it is a board-file merge."
+
+  "pcbnew.EditorControl.rescueAutosave":
+    channel: file
+    status: gap
+    notes: "Autosave recovery is a file operation on the _autosave_ sidecar."
+
+  # --- PCB global edits ----------------------------------------------------
+  "pcbnew.GlobalEdit.updateFootprints":
+    channel: file
+    status: gap
+    notes: "Update Footprints from Library rewrites footprint definitions in .kicad_pcb; no CLI verb exists."
+
+  "pcbnew.GlobalEdit.changeFootprints":
+    channel: file
+    status: gap
+    notes: "Bulk footprint substitution in the board file."
+
+  "pcbnew.GlobalEdit.editTracksAndVias":
+    channel: mcp
+    status: partial
+    mcp_tool: route_set_net_class_rules
+    notes: >-
+      Net-class-driven track and via sizing is covered; per-selection overrides from the
+      dialog are not.
+
+  "pcbnew.GlobalEdit.editTextAndGraphics":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_normalize_text_sizes
+    notes: "The schematic-side normaliser exists; the PCB-side bulk text/graphics edit does not."
+
+  "pcbnew.GlobalEdit.editTeardrops":
+    channel: file
+    status: gap
+    notes: "Teardrop settings live in the board file's (teardrops ...) blocks."
+
+  "pcbnew.GlobalEdit.cleanupTracksAndVias":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_cleanup_tracks_and_vias
+    notes: >-
+      Removes zero-length and exactly-duplicated tracks and vias. Collinear segment
+      merging is deliberately excluded: it is only safe when the shared endpoint has no
+      other connection, which needs full connectivity analysis rather than a file edit.
+
+  "pcbnew.GlobalEdit.cleanupGraphics":
+    channel: file
+    status: gap
+    notes: "Graphics cleanup has no headless verb."
+
+  "pcbnew.GlobalEdit.removeUnusedPads":
+    channel: file
+    status: gap
+    notes: "Unused-pad removal is a per-pad board-file property."
+
+  "pcbnew.GlobalEdit.swapLayers":
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_swap_layers
+    notes: >-
+      Rewrites layer references throughout the board file. The mapping is applied
+      simultaneously, so F.Cu<->B.Cu is a true swap; stackup layer definitions and
+      wildcard pad layers are left alone.
+
+  "pcbnew.GlobalEdit.globalDeletions":
+    channel: mcp
+    status: covered
+    mcp_tool: pcb_global_delete
+    notes: >-
+      Deletes top-level board items by class, optionally filtered by layer and net,
+      and skips locked items by default. Like the dialog, it does not reach items that
+      belong to a footprint.
+
+  "pcbnew.GlobalEdit.migrate3DModels":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_bulk_assign_3d_models
+    notes: "lib_set_3d_model_path / lib_remove_3d_model handle individual moves."
+
+  "pcbnew.ReannotateTool.ShowReannotateDialog":
+    channel: file
+    status: gap
+    notes: "Geographical reannotation of PCB references; no CLI verb, board-file rewrite."
+
+  "pcbnew.Autoplacer.autoplaceOffboard":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_auto_place_symbols
+    notes: "Schematic auto-placement exists; PCB footprint autoplacement is not exposed headlessly."
+
+  "pcbnew.Autoplacer.autoplaceSelected":
+    channel: gui-only
+    status: gui-only
+    notes: "Operates on the live canvas selection."
+
+  "pcbnew.Multichannel.repeatLayout":
+    channel: gui-only
+    status: gui-only
+    notes: "Multichannel layout replication is driven from the GUI's rule areas."
+
+  "pcbnew.Multichannel.generatePlacementRuleAreas":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.PadTool.enumeratePads":
+    channel: file
+    status: gap
+    notes: "Pad renumbering inside a footprint; a footprint-file rewrite."
+
+  "pcbnew.PadTool.defaultPadProperties":
+    channel: file
+    status: gap
+    notes: "Editor default, stored in footprint editor settings."
+
+  "pcbnew.ModuleEditor.padTable":
+    channel: mcp
+    status: covered
+    mcp_tool: fp_get_info
+    notes: "Reports the footprint's pad table."
+
+  "pcbnew.ModuleEditor.footprintProperties":
+    channel: mcp
+    status: covered
+    mcp_tool: fp_get_info
+
+  "pcbnew.ModuleEditor.createFootprint":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_generate_footprint_ipc7351
+    notes: "Generates an IPC-7351 compliant footprint headlessly."
+
+  "pcbnew.ModuleEditor.newFootprint":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_generate_footprint_ipc7351
+
+  "pcbnew.ModuleEditor.exportFootprint":
+    channel: mcp
+    status: covered
+    mcp_tool: fp_export
+
+  "pcbnew.Generator.regenerateAllTuning":
+    channel: mcp
+    status: covered
+    mcp_tool: route_apply_tuning_profile
+    notes: "route_create_tuning_profile / route_list_tuning_profiles manage the profiles."
+
+  "pcbnew.Generator.regenerateAll":
+    channel: gui-only
+    status: gui-only
+    notes: "Generator objects are rebuilt by the running editor."
+
+  "pcbnew.Generator.regenerateSelected":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.Generator.showManager":
+    channel: gui-only
+    status: gui-only
+
+  # --- Schematic authoring -------------------------------------------------
+  "eeschema.InteractiveDrawing.placeSymbol":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_symbol
+    notes: "sch_add_component resolves a library part by name."
+
+  "eeschema.InteractiveDrawing.placePowerSymbol":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_power_symbol
+
+  "eeschema.InteractiveDrawing.placeLabel":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_label
+
+  "eeschema.InteractiveDrawing.placeGlobalLabel":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_global_label
+
+  "eeschema.InteractiveDrawing.placeHierarchicalLabel":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_hierarchical_label
+
+  "eeschema.InteractiveDrawing.placeClassLabel":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_add_label
+    notes: "Directive (netclass) labels are written as labels; no dedicated netclass-label tool."
+
+  "eeschema.InteractiveDrawing.placeJunction":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_missing_junctions
+    notes: "Adds the junctions the schematic's topology requires."
+
+  "eeschema.InteractiveDrawing.placeNoConnect":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_no_connect
+    notes: "sch_delete_no_connect removes them."
+
+  "eeschema.InteractiveDrawing.placeBusWireEntry":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_bus_wire_entry
+
+  "eeschema.InteractiveDrawing.placeSheetPin":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_sheet_pin
+
+  "eeschema.InteractiveDrawing.drawSheet":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_create_sheet
+    notes: "sch_move_sheet / sch_delete_sheet / sch_set_sheet_size complete the lifecycle."
+
+  "eeschema.InteractiveDrawing.importSheet":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_import_sheet_pins
+
+  "eeschema.InteractiveDrawing.syncAllSheetsPins":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_wire_sheet_pins
+    notes: "sch_list_sheet_pins reports the current pin set."
+
+  "eeschema.InteractiveDrawing.placeSchematicText":
+    channel: gui-only
+    status: gui-only
+    notes: "Free graphic text; no authoring tool exposed."
+
+  "eeschema.InteractiveDrawingLineWireBus.drawWires":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_wire
+    notes: "sch_route_wire_between_pins routes pin-to-pin; sch_delete_wire removes segments."
+
+  "eeschema.InteractiveDrawingLineWireBus.drawBuses":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_add_bus
+
+  "eeschema.EditorControl.annotate":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_annotate
+    notes: "Annotate Schematic; sch_annotate assigns references headlessly."
+
+  "eeschema.EditorControl.incrementAnnotations":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_annotate
+    notes: "Re-annotation from a starting reference is covered; the increment-from dialog's scoping options are not."
+
+  "eeschema.EditorControl.assignFootprints":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_assign_footprint
+    notes: "The headless equivalent of launching CvPcb."
+
+  "eeschema.EditorControl.editSymbolFields":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+    notes: "sch_modify_property edits a single field."
+
+  "eeschema.EditorControl.editSymbolLibraryLinks":
+    channel: mcp
+    status: partial
+    mcp_tool: sch_update_properties
+    notes: "Library link rewriting is possible through property edits but has no dedicated tool."
+
+  "eeschema.EditorControl.setDNP":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_set_dnp
+    notes: "variant_set_component_override applies DNP per assembly variant."
+
+  "eeschema.EditorControl.setExcludeFromBOM":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+    notes: "Sets the symbol's exclude_from_bom attribute."
+
+  "eeschema.EditorControl.setExcludeFromBoard":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+
+  "eeschema.EditorControl.setExcludeFromSimulation":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+
+  "eeschema.EditorControl.setExcludeFromPosFiles":
+    channel: mcp
+    status: partial
+    mcp_tool: mfg_correct_cpl_rotations
+    notes: "Position-file exclusion is a footprint attribute; only the rotation-correction path is exposed."
+
+  "eeschema.EditorControl.exportNetlist":
+    channel: mcp
+    status: covered
+    mcp_tool: export_netlist
+    cli_command: ["sch", "export", "netlist"]
+    notes: "export_spice_netlist emits the SPICE flavour."
+
+  "eeschema.EditorControl.generateBOM":
+    channel: mcp
+    status: covered
+    mcp_tool: export_bom
+    cli_command: ["sch", "export", "bom"]
+
+  "eeschema.EditorControl.generateBOMLegacy":
+    channel: mcp
+    status: covered
+    mcp_tool: export_sch_python_bom
+    notes: "The legacy Python BOM-generator path."
+
+  "eeschema.EditorControl.exportSymbolsToLibrary":
+    channel: mcp
+    status: covered
+    mcp_tool: sym_export
+
+  "eeschema.EditorControl.importNonKicadSchematic":
+    channel: gui-only
+    status: gui-only
+    notes: "Altium/Eagle/OrCAD schematic import is dialog-only; kicad-cli has no sch import verb."
+
+  "eeschema.EditorControl.importFPAssignments":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_assign_footprint
+    notes: "Applies footprint assignments to schematic symbols."
+
+  "eeschema.EditorControl.importGraphics":
+    channel: gui-only
+    status: gui-only
+
+  "eeschema.EditorControl.rescueSymbols":
+    channel: gui-only
+    status: gui-only
+    notes: "Legacy symbol rescue runs only from the dialog."
+
+  "eeschema.EditorControl.remapSymbols":
+    channel: gui-only
+    status: gui-only
+    notes: "Legacy library remapping runs only from the dialog."
+
+  "eeschema.EditorControl.editPageNumber":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_set_title_block_info
+
+  "eeschema.EditorControl.saveCurrSheetCopyAs":
+    channel: file
+    status: gap
+    notes: "Sheet copy-out is a file operation with no dedicated tool."
+
+  "eeschema.EditorControl.addVariant":
+    channel: mcp
+    status: covered
+    mcp_tool: variant_create
+    notes: "variant_clone / variant_list / variant_set_active manage the set."
+
+  "eeschema.EditorControl.removeVariant":
+    channel: mcp
+    status: covered
+    mcp_tool: variant_delete
+
+  "eeschema.EditorControl.editVariantDescription":
+    channel: mcp
+    status: partial
+    mcp_tool: variant_create
+    notes: "Variant metadata is set at creation; there is no rename/describe tool."
+
+  "eeschema.EditorControl.markSimExclusions":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+
+  "eeschema.EditorControl.showSimulator":
+    channel: mcp
+    status: covered
+    mcp_tool: sim_run_transient
+    notes: >-
+      The simulator window's analyses map to sim_run_transient / sim_run_ac_analysis /
+      sim_run_dc_sweep / sim_run_operating_point, with sim_validate_spice_setup and
+      sim_assign_spice_model for model wiring.
+
+  "eeschema.EditorControl.showOperatingPointVoltages":
+    channel: mcp
+    status: covered
+    mcp_tool: sim_run_operating_point
+
+  "eeschema.EditorControl.showOperatingPointCurrents":
+    channel: mcp
+    status: covered
+    mcp_tool: sim_run_operating_point
+
+  "eeschema.EditorControl.showNetNavigator":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_trace_net
+    notes: "sch_get_net_names / sch_get_connectivity_graph give the same connectivity."
+
+  "eeschema.EditorTool.showHierarchy":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_list_sheets
+    notes: "sch_get_sheet_info details a single sheet."
+
+  "eeschema.InteractiveEdit.updateSymbols":
+    channel: file
+    status: gap
+    notes: "Update Symbols from Library rewrites symbol definitions embedded in .kicad_sch."
+
+  "eeschema.InteractiveEdit.changeSymbols":
+    channel: file
+    status: gap
+    notes: "Bulk symbol substitution in the schematic file."
+
+  "eeschema.InteractiveEdit.pinTable":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_get_pin_positions
+    notes: "lib_get_symbol_info reports the library pin table."
+
+  "eeschema.InteractiveEdit.symbolProperties":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_get_symbols
+    notes: "sch_modify_property / sch_update_properties write them."
+
+  "eeschema.InteractiveEdit.editTextAndGraphics":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_normalize_text_sizes
+    notes: "sch_fix_readability applies the broader readability pass."
+
+  # --- Symbol / footprint libraries ----------------------------------------
+  "eeschema.SymbolLibraryControl.newSymbol":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_create_custom_symbol
+    notes: "lib_generate_symbol_from_pintable builds one from a pin table."
+
+  "eeschema.SymbolLibraryControl.exportSymbol":
+    channel: mcp
+    status: covered
+    mcp_tool: sym_export
+
+  "eeschema.SymbolLibraryControl.exportSymbolAsSVG":
+    channel: mcp
+    status: covered
+    mcp_tool: sym_export_svg
+    cli_command: ["sym", "export", "svg"]
+
+  "eeschema.SymbolLibraryControl.exportSymbolView":
+    channel: mcp
+    status: partial
+    mcp_tool: sym_export_svg
+    notes: "SVG is exported headlessly; PNG rasterisation of a symbol view is not."
+
+  "eeschema.SymbolLibraryControl.importSymbol":
+    channel: gui-only
+    status: gui-only
+    notes: "Symbol file import into a library is dialog-only."
+
+  "eeschema.SymbolLibraryControl.updateSymbolFields":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_update_properties
+
+  "eeschema.SymbolLibraryControl.saveSymbolAs":
+    channel: mcp
+    status: partial
+    mcp_tool: sym_export
+
+  "eeschema.SymbolLibraryControl.saveSymbolCopyAs":
+    channel: mcp
+    status: partial
+    mcp_tool: sym_export
+
+  "eeschema.SymbolLibraryControl.saveLibraryAs":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.ModuleEditor.importFootprint":
+    channel: gui-only
+    status: gui-only
+    notes: "Footprint file import into a library is dialog-only."
+
+  "pcbnew.ModuleEditor.loadFootprintFromBoard":
+    channel: mcp
+    status: partial
+    mcp_tool: pcb_get_footprints
+    notes: "Board footprints are readable; loading one into the editor is a GUI action."
+
+  "pcbnew.ModuleEditor.saveFootprintToBoard":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.EditorControl.EditLibFpInFpEditor":
+    channel: gui-only
+    status: gui-only
+
+  "eeschema.EditorControl.editLibSymbolWithSymbolEditor":
+    channel: gui-only
+    status: gui-only
+
+  "common.Control.addLibrary":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_list_libraries
+    notes: >-
+      Library tables are files (sym-lib-table / fp-lib-table). lib_list_libraries reads
+      them and lib_rebuild_index refreshes the search index after a table edit.
+
+  "common.Control.newLibrary":
+    channel: mcp
+    status: partial
+    mcp_tool: lib_create_custom_symbol
+    notes: "Creating a library file is possible via authoring tools; there is no explicit create-library tool."
+
+  "common.SuiteControl.showSymbolLibTable":
+    channel: file
+    status: partial
+    notes: "sym-lib-table is a plain S-expression file; lib_list_libraries reads it, no tool writes it."
+
+  "common.SuiteControl.showFootprintLibTable":
+    channel: file
+    status: partial
+    notes: "fp-lib-table is a plain S-expression file; lib_list_libraries reads it, no tool writes it."
+
+  "common.SuiteControl.showDesignBLockLibTable":
+    channel: file
+    status: gap
+    notes: "Design-block library tables are not modelled by this server."
+
+  "common.Control.showDatasheet":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_get_datasheet_url
+
+  # --- Cross-editor synchronisation ---------------------------------------
+  "common.Control.updatePcbFromSchematic":
+    channel: ipc
+    status: gap
+    notes: >-
+      Forward annotation (schematic -> board) is the single largest headless gap in
+      KiCad 10.0.6: there is no kicad-cli verb for it. pcb_transfer_quality_gate and
+      validate_footprints_vs_schematic detect when the board is stale, but applying the
+      update still needs the GUI or an IPC-driven KiCad session.
+
+  "common.Control.updateSchematicFromPCB":
+    channel: ipc
+    status: gap
+    notes: >-
+      Back annotation (board -> schematic). Same limitation as forward annotation;
+      schematic_back_annotation covers reading the delta, not applying it headlessly.
+
+  "eeschema.EditorControl.showPcbNew":
+    channel: gui-only
+    status: gui-only
+    notes: "Window switching."
+
+  "pcbnew.EditorControl.showEeschema":
+    channel: gui-only
+    status: gui-only
+    notes: "Window switching."
+
+  "cvpcb.Control.SaveAssociationsToSchematic":
+    channel: mcp
+    status: covered
+    mcp_tool: lib_assign_footprint
+    notes: "Writes footprint assignments back into the schematic."
+
+  # --- Project management --------------------------------------------------
+  "kicad.Control.newProject":
+    channel: mcp
+    status: covered
+    mcp_tool: kicad_create_new_project
+
+  "kicad.Control.openProject":
+    channel: mcp
+    status: covered
+    mcp_tool: kicad_set_project
+    notes: "kicad_list_recent_projects / kicad_scan_directory locate projects."
+
+  "kicad.Control.closeProject":
+    channel: mcp
+    status: covered
+    mcp_tool: kicad_set_project
+    notes: "Switching the active project is the headless equivalent of closing one."
+
+  "kicad.Control.archiveProject":
+    channel: file
+    status: gap
+    notes: "Project archive/unarchive is a zip of project files; no CLI verb, no tool yet."
+
+  "kicad.Control.unarchiveProject":
+    channel: file
+    status: gap
+
+  "kicad.Control.newJobs":
+    channel: mcp
+    status: covered
+    mcp_tool: jobset_list_templates
+    notes: "jobset_export writes a jobset file from a template."
+
+  "kicad.Control.openJobset":
+    channel: mcp
+    status: covered
+    mcp_tool: jobset_run
+    cli_command: ["jobset", "run"]
+    notes: "jobset_validate checks a jobset before running it."
+
+  "kicad.Control.showLocalHistory":
+    channel: mcp
+    status: covered
+    mcp_tool: vcs_list_checkpoints
+    notes: "vcs_init_git / vcs_commit_checkpoint / vcs_tag_release manage the history."
+
+  "kicad.Control.restoreLocalHistory":
+    channel: mcp
+    status: covered
+    mcp_tool: vcs_restore_checkpoint
+    notes: "vcs_diff_with_checkpoint previews the restore."
+
+  "kicad.Control.newFromRepository":
+    channel: mcp
+    status: partial
+    mcp_tool: vcs_init_git
+    notes: "Git is driven headlessly, but cloning a project template repository is not exposed."
+
+  "kicad.Control.openDemoProject":
+    channel: gui-only
+    status: gui-only
+
+  "kicad.Control.editSchematic":
+    channel: gui-only
+    status: gui-only
+    notes: "Launches the Schematic Editor window."
+
+  "kicad.Control.editPCB":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.editSymbols":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.editFootprints":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.editDrawingSheet":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.viewGerbers":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.convertImage":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.showCalculator":
+    channel: mcp
+    status: partial
+    mcp_tool: si_calculate_trace_impedance
+    notes: >-
+      The PCB Calculator's electrical maths is covered by si_calculate_trace_impedance,
+      si_calculate_trace_width_for_impedance, thermal_calculate_via_count and
+      pdn_calculate_voltage_drop; the other calculator pages are not.
+
+  "kicad.Control.pluginContentManager":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.openTextEditor":
+    channel: gui-only
+    status: gui-only
+  "kicad.Control.OpenProjectDirectory":
+    channel: gui-only
+    status: gui-only
+
+  # --- File lifecycle ------------------------------------------------------
+  "common.Control.new":
+    channel: mcp
+    status: covered
+    mcp_tool: kicad_create_new_project
+
+  "common.Control.open":
+    channel: mcp
+    status: covered
+    mcp_tool: kicad_set_project
+
+  "common.Control.save":
+    channel: mcp
+    status: covered
+    mcp_tool: vcs_commit_checkpoint
+    notes: >-
+      Every write tool in this server persists to disk directly, so there is no separate
+      save step; vcs_commit_checkpoint is how a saved state is pinned.
+
+  "common.Control.saveAll":
+    channel: mcp
+    status: covered
+    mcp_tool: vcs_commit_checkpoint
+  "common.Control.saveAs":
+    channel: file
+    status: gap
+    notes: "Save-as/copy-out of a document has no dedicated tool."
+  "common.Control.saveCopy":
+    channel: file
+    status: gap
+  "common.Control.revert":
+    channel: mcp
+    status: covered
+    mcp_tool: vcs_restore_checkpoint
+
+  "common.Control.pageSettings":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_set_title_block_info
+    notes: "sch_set_sheet_size sets the page size; the PCB title block is set the same way."
+
+  # --- Upgrade / maintenance ----------------------------------------------
+  "common.API.pluginsReload":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.ScriptingTool.pluginsShowFolder":
+    channel: gui-only
+    status: gui-only
+
+  "pcbnew.Control.showPythonConsole":
+    channel: gui-only
+    status: gui-only
+    notes: >-
+      The in-GUI scripting console is not headless. This MCP server is the scripted
+      surface; `kicad-cli` plus the tools here replace it for automation.
+
+  "common.Control.show3DViewer":
+    channel: mcp
+    status: covered
+    mcp_tool: export_3d_render
+    cli_command: ["pcb", "render"]
+    notes: "pcb_export_3d_pdf produces an interactive 3D PDF instead of a still render."
+
+  "common.Control.showCalculatorTools":
+    channel: mcp
+    status: partial
+    mcp_tool: si_calculate_trace_impedance
+
+  "common.SuiteControl.configurePaths":
+    channel: gui-only
+    status: gui-only
+    notes: "Path configuration is stored in KiCad's user settings, outside project files."
+
+  "common.SuiteControl.openPreferences":
+    channel: gui-only
+    status: gui-only
+    notes: "Application preferences are user settings, not project data."
+
+  # --- Display units and origins ------------------------------------------
+  "common.Control.metricUnits":
+    channel: gui-only
+    status: gui-only
+    notes: "Display units only; every tool here takes and reports explicit millimetres."
+  "common.Control.imperialUnits":
+    channel: gui-only
+    status: gui-only
+    notes: "Display units only."
+  "common.Control.mils":
+    channel: gui-only
+    status: gui-only
+    notes: "Display units only."
+  "common.Control.highContrastMode":
+    channel: gui-only
+    status: gui-only
+    notes: "Canvas rendering mode."
+
+  "common.Control.editGridOrigin":
+    channel: file
+    status: partial
+    mcp_tool: pcb_get_origin
+    notes: "The grid origin is stored in the board file; pcb_get_origin reads it, no tool writes it."
+  "common.Control.gridSetOrigin":
+    channel: file
+    status: partial
+    mcp_tool: pcb_get_origin
+  "common.Control.gridResetOrigin":
+    channel: file
+    status: partial
+    mcp_tool: pcb_get_origin
+
+  "pcbnew.EditorControl.drillOrigin":
+    channel: file
+    status: partial
+    mcp_tool: pcb_get_origin
+    notes: >-
+      The drill/place origin drives drill and position-file coordinates.
+      pcb_get_origin reports it; setting it headlessly is a board-file edit with no tool yet.
+  "pcbnew.EditorControl.drillResetOrigin":
+    channel: file
+    status: partial
+    mcp_tool: pcb_get_origin
+
+  "pcbnew.EditorControl.placeFootprint":
+    channel: file
+    status: gap
+    notes: >-
+      Placing a footprint from a library onto the board is a board-file write with no
+      dedicated tool; pcb_get_footprints reads what is already placed.
+
+  "pcbnew.PadTool.placePad":
+    channel: file
+    status: gap
+    notes: "Adding a pad to a footprint is a footprint-file write."
+
+  "eeschema.EditorControl.drawSheetOnClipboard":
+    channel: mcp
+    status: covered
+    mcp_tool: sch_render_png
+    notes: "Renders the sheet to an image instead of the system clipboard."
