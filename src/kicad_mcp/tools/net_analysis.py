@@ -22,6 +22,7 @@ from ..pcb.board_access import (
     board_vias,
 )
 from ..pcb.pad_mapping import MappedPad, footprint_pads, map_pads_to_footprints
+from ..utils.board_nets import board_nets_from_text
 from ..utils.units import nm_to_mm
 from .export_support import _get_pcb_file
 from .metadata import headless_compatible
@@ -85,16 +86,10 @@ def _collect_nets_from_file() -> list[dict[str, Any]]:
     from .board_file import _normalize_board_content
 
     content = _normalize_board_content(_get_pcb_file().read_text(encoding="utf-8", errors="ignore"))
-    nets: list[dict[str, Any]] = []
-    seen_codes: set[int] = set()
-    for match in __import__("re").finditer(r'\(net\s+(\d+)\s+"((?:\\.|[^"\\])*)"', content):
-        code = int(match.group(1))
-        name = match.group(2)
-        if code in seen_codes:
-            continue
-        seen_codes.add(code)
-        nets.append({"code": code, "name": name, "class_name": ""})
-    return nets
+    return [
+        {"code": net["code"], "name": net["name"], "class_name": ""}
+        for net in board_nets_from_text(content)
+    ]
 
 
 def _nets() -> list[dict[str, Any]]:
