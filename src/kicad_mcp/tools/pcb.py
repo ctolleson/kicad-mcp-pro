@@ -110,6 +110,7 @@ from . import (
     pcb_file_edits,
     pcb_file_inspection,
     pcb_groups_inspection,
+    pcb_manufacturing_cleanup,
     pcb_origin_management,
     pcb_session_inspection,
     pcb_stackup_management,
@@ -5023,6 +5024,15 @@ def register(mcp: FastMCP) -> None:
             read_board_text=lambda: _get_pcb_file_for_sync().read_text(
                 encoding="utf-8", errors="ignore"
             ),
+            configured_board_file=_configured_board_file,
+        ),
+    )
+
+    pcb_manufacturing_cleanup.register(
+        mcp,
+        pcb_file_edits.PcbFileEditDependencies(
+            transactional_board_write=_transactional_board_write,
+            read_board_text=lambda: _get_pcb_file_for_sync().read_text(encoding="utf-8"),
             configured_board_file=_configured_board_file,
         ),
     )

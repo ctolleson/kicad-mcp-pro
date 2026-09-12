@@ -240,6 +240,8 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
             "pcb_global_delete",
             "pcb_cleanup_tracks_and_vias",
             "pcb_set_zone_properties",
+            "pcb_move_silkscreen_to_fab",
+            "pcb_set_zone_island_policy",
             "pcb_add_blind_via",
             "pcb_add_microvia",
             "pcb_auto_place_by_schematic",

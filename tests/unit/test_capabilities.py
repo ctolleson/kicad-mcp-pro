@@ -137,3 +137,16 @@ def test_profile_results_are_copies() -> None:
     records.clear()
 
     assert all_records()
+
+
+def test_manufacturing_cleanup_is_file_backed_and_dry_run_capable() -> None:
+    for name in ("pcb_move_silkscreen_to_fab", "pcb_set_zone_island_policy"):
+        record = get(name)
+        assert record is not None
+        assert record.runtime is RuntimeRequirement.NONE
+        assert record.tier is AccessTier.WRITE
+        assert record.writes_files is True
+        assert record.writes_kicad_gui_state is False
+        assert record.supports_dry_run is True
+        assert is_allowed(name, "agent_full")
+        assert not is_allowed(name, "review")

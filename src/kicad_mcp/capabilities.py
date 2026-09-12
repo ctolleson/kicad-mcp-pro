@@ -442,6 +442,8 @@ _FILE_BACKED_PCB_WRITES = frozenset(
         "pcb_global_delete",
         "pcb_cleanup_tracks_and_vias",
         "pcb_set_zone_properties",
+        "pcb_move_silkscreen_to_fab",
+        "pcb_set_zone_island_policy",
         "pcb_set_stackup",
         "pcb_set_predefined_sizes",
         "pcb_update_from_schematic",
@@ -555,7 +557,10 @@ def _register_router_tools() -> None:
                     runtime=runtime,
                     writes_files=writes_files,
                     writes_kicad_gui_state=writes_gui,
-                    supports_dry_run=False,
+                    supports_dry_run=name in {
+                        "pcb_move_silkscreen_to_fab",
+                        "pcb_set_zone_island_policy",
+                    },
                     supports_rollback=category == "version_control"
                     or name.startswith(("pcb_begin_", "pcb_push_", "pcb_drop_", "pcb_revert")),
                     human_gate_required=tier is AccessTier.HUMAN_ONLY,
