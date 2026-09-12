@@ -1758,6 +1758,111 @@
     "destructive": false,
     "experimental": false,
     "headless": true,
+    "idempotent": false,
+    "name": "kicad_menu_coverage",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "kicad_menu_describe",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": true,
+    "name": "kicad_menu_export_map",
+    "open_world": true,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "kicad_menu_frames",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": false,
+    "idempotent": false,
+    "name": "kicad_menu_invoke",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "kicad_menu_search",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "kicad_menu_tree",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "expert",
+      "full"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
     "idempotent": true,
     "name": "kicad_scan_directory",
     "open_world": false,
@@ -2989,6 +3094,48 @@
     "requires_kicad_running": false
   },
   {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_apply_manufacturer_rules",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_assign_nets_to_class",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
     "destructive": true,
     "experimental": false,
     "headless": true,
@@ -3207,6 +3354,56 @@
     "experimental": false,
     "headless": true,
     "idempotent": false,
+    "name": "pcb_cleanup_tracks_and_vias",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_compare_with_schematic",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "analysis",
+      "beginner",
+      "builder",
+      "critic",
+      "expert",
+      "full",
+      "high_speed",
+      "manufacturing",
+      "manufacturing_release",
+      "minimal",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power",
+      "read_only_inspection",
+      "release_manager"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
     "name": "pcb_critique_placement",
     "open_world": false,
     "profiles": [
@@ -3223,6 +3420,27 @@
       "pcb_layout",
       "power",
       "release_manager"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_define_net_class",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
     ],
     "read_only": false,
     "requires_kicad_running": false
@@ -3248,6 +3466,27 @@
     ],
     "read_only": false,
     "requires_kicad_running": true
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_delete_net_class",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
   },
   {
     "destructive": true,
@@ -3341,6 +3580,35 @@
     "headless": true,
     "idempotent": true,
     "name": "pcb_get_board_as_string",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "analysis",
+      "beginner",
+      "builder",
+      "critic",
+      "expert",
+      "full",
+      "high_speed",
+      "manufacturing",
+      "manufacturing_release",
+      "minimal",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power",
+      "read_only_inspection",
+      "release_manager"
+    ],
+    "read_only": true,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": true,
+    "name": "pcb_get_board_setup",
     "open_world": false,
     "profiles": [
       "agent_full",
@@ -3923,6 +4191,27 @@
     "experimental": false,
     "headless": true,
     "idempotent": false,
+    "name": "pcb_global_delete",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
     "name": "pcb_group_by_function",
     "open_world": false,
     "profiles": [
@@ -3980,7 +4269,65 @@
     "experimental": false,
     "headless": true,
     "idempotent": false,
+    "name": "pcb_list_nets_on_board",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "analysis",
+      "beginner",
+      "builder",
+      "critic",
+      "expert",
+      "full",
+      "high_speed",
+      "manufacturing",
+      "manufacturing_release",
+      "minimal",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power",
+      "read_only_inspection",
+      "release_manager"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
     "name": "pcb_list_test_points",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "analysis",
+      "beginner",
+      "builder",
+      "critic",
+      "expert",
+      "full",
+      "high_speed",
+      "manufacturing",
+      "manufacturing_release",
+      "minimal",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power",
+      "read_only_inspection",
+      "release_manager"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_list_zones",
     "open_world": false,
     "profiles": [
       "agent_full",
@@ -4045,6 +4392,27 @@
     ],
     "read_only": false,
     "requires_kicad_running": true
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_move_silkscreen_to_fab",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
   },
   {
     "destructive": false,
@@ -4475,7 +4843,7 @@
   {
     "destructive": true,
     "experimental": false,
-    "headless": false,
+    "headless": true,
     "idempotent": true,
     "name": "pcb_set_net_class",
     "open_world": false,
@@ -4513,6 +4881,27 @@
     ],
     "read_only": false,
     "requires_kicad_running": true
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": true,
+    "name": "pcb_set_predefined_sizes",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
   },
   {
     "destructive": true,
@@ -4557,6 +4946,48 @@
     "requires_kicad_running": true
   },
   {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": true,
+    "name": "pcb_set_zone_island_policy",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": true,
+    "idempotent": true,
+    "name": "pcb_set_zone_properties",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
     "destructive": false,
     "experimental": false,
     "headless": true,
@@ -4579,6 +5010,27 @@
       "release_manager",
       "schematic",
       "schematic_authoring"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": false,
+    "experimental": false,
+    "headless": true,
+    "idempotent": false,
+    "name": "pcb_swap_layers",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
     ],
     "read_only": false,
     "requires_kicad_running": false
@@ -4629,6 +5081,27 @@
       "schematic_authoring"
     ],
     "read_only": true,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": false,
+    "idempotent": false,
+    "name": "pcb_update_from_schematic",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
+    ],
+    "read_only": false,
     "requires_kicad_running": false
   },
   {
@@ -7602,6 +8075,27 @@
       "schematic_authoring",
       "schematic_only",
       "simulation"
+    ],
+    "read_only": false,
+    "requires_kicad_running": false
+  },
+  {
+    "destructive": true,
+    "experimental": false,
+    "headless": false,
+    "idempotent": false,
+    "name": "sch_update_from_pcb",
+    "open_world": false,
+    "profiles": [
+      "agent_full",
+      "builder",
+      "expert",
+      "full",
+      "high_speed",
+      "pcb",
+      "pcb_layout",
+      "pcb_only",
+      "power"
     ],
     "read_only": false,
     "requires_kicad_running": false
