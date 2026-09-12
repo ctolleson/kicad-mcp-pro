@@ -70,3 +70,28 @@ For JLCPCB, positive CPL angles are counterclockwise; package-specific zero
 orientation still needs verification in the assembly preview. See
 [JLCPCB CPL documentation](https://jlcpcb.com/help/article/pick-place-file-for-pcb-assembly).
 Neither cleanup tool approves a manufacturing release.
+
+## Validation Evidence
+
+Validated on 2026-09-12 against origin/main `dd52c77`:
+
+- Focused cleanup, capability, discovery, existing file-edit and tool-snapshot
+  tests: 74 passed.
+- Native synthetic-board round trip with KiCad 10.0.6: passed. A two-region
+  copper fill becomes one connected region after native refill; selected silk
+  text remains on Fab after native save. No customer board is used by this test.
+- Broader PCB unit/integration tests: 318 passed, one existing failure.
+  `test_nets_uses_file_fallback_when_no_board` also fails on untouched `dd52c77`
+  with a live editor: its fallback test reaches IPC, where `Track.length` is
+  treated as a value rather than a method. This feature does not change that path.
+- Router/profile regression tests: 45 passed.
+- Ruff and type checking: passed for the changed Python files.
+- Generated catalog refresh also includes 22 existing tools missing from the
+  baseline golden snapshot, plus the baseline `pcb_set_net_class` headless flag.
+  This baseline drift was reproduced before refreshing; only the two cleanup
+  commands are newly implemented by this feature.
+
+The full pinned-toolchain CI suite was not run: local uv differs from the pinned
+version, and retrying with the pinned uv reports existing lockfile drift. The
+change-scoped gates use the available Python runtime and an isolated type-checker
+environment; no dependency manifest or lockfile was changed.

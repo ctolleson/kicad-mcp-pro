@@ -557,7 +557,8 @@ def _register_router_tools() -> None:
                     runtime=runtime,
                     writes_files=writes_files,
                     writes_kicad_gui_state=writes_gui,
-                    supports_dry_run=name in {
+                    supports_dry_run=name
+                    in {
                         "pcb_move_silkscreen_to_fab",
                         "pcb_set_zone_island_policy",
                     },

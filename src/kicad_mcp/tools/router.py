@@ -162,9 +162,7 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
         ],
     },
     "menus": {
-        "description": (
-            "Navigate KiCad's GUI menu surface and drive menu commands headlessly."
-        ),
+        "description": ("Navigate KiCad's GUI menu surface and drive menu commands headlessly."),
         "tools": [
             "kicad_menu_frames",
             "kicad_menu_tree",
