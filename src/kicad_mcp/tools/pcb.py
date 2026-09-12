@@ -4324,7 +4324,7 @@ def _register_zone_authoring_tools(mcp: FastMCP) -> None:
         zone.name = payload.name
         board = get_board()
         copper_layers = [
-            layer for layer in board.get_enabled_layers() if "_Cu" in BoardLayer.Name(layer)
+            layer for layer in board.get_enabled_layers() if BoardLayer.Name(layer).endswith("_Cu")
         ]
         zone.layers = copper_layers or [BoardLayer.BL_F_Cu, BoardLayer.BL_B_Cu]
         zone.outline = _rectangle_polygon(

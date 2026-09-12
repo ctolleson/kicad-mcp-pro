@@ -1133,7 +1133,13 @@ async def test_pcb_design_blocks_and_inner_layer_graphics_success(
 
 @pytest.mark.anyio
 async def test_pcb_set_keepout_zone_creates_rule_area(mock_board) -> None:
-    mock_board.get_enabled_layers.return_value = [BoardLayer.BL_F_Cu, BoardLayer.BL_B_Cu]
+    mock_board.get_enabled_layers.return_value = [
+        BoardLayer.BL_F_Cu,
+        BoardLayer.BL_In1_Cu,
+        BoardLayer.BL_B_Cu,
+        BoardLayer.BL_Edge_Cuts,
+        BoardLayer.BL_F_SilkS,
+    ]
     server = build_server("pcb")
 
     result = await call_tool_text(
@@ -1147,7 +1153,7 @@ async def test_pcb_set_keepout_zone_creates_rule_area(mock_board) -> None:
     assert zone.proto.rule_area_settings.keepout_tracks is True
     assert zone.proto.rule_area_settings.keepout_vias is True
     assert zone.proto.rule_area_settings.keepout_copper is True
-    assert len(zone.layers) == 2
+    assert list(zone.layers) == [BoardLayer.BL_F_Cu, BoardLayer.BL_In1_Cu, BoardLayer.BL_B_Cu]
 
 
 @pytest.mark.anyio
